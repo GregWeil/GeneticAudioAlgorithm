@@ -4,14 +4,12 @@
 #include "audio.c"
 
 int main() {
-	int size = SAMPLE_RATE * 1;
-	short* audio = (short*)malloc(size * sizeof(short));
-	for (int i = 0; i < size; ++i) {
-		audio[i] = 0;
-		audio[i] += ((i % 80) - 40) * 40;
-		audio[i] += ((i % 320) - 160) * 10;
-	}
-	audio_save(audio, size, "audio.wav");
+	struct Note note;
+	note.frequency = 220;
+	note.volume = 0.05;
+	note.length = 1.0;
+	Sample* audio = note_audio(&note);
+	audio_save(audio, note_samples(&note), "audio.wav");
 	free(audio);
 	return 0;
 }

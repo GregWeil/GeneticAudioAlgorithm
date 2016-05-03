@@ -3,16 +3,41 @@
 
 #include <stdio.h>
 
-typedef short SAMPLE;
-
 const unsigned int SAMPLE_RATE = 48000;
 
-void audio_save(SAMPLE* audio, unsigned int audiolength, char* path) {
+typedef short Sample;
+
+//The representation of a single note
+struct Note {
+	double frequency;
+	double volume;
+	double length;
+};
+
+//Get the number of samples needed to represent a note
+unsigned int note_samples(struct Note *note) {
+	return (note->length * SAMPLE_RATE);
+}
+
+//Build an audio stream from a note
+Sample* note_audio(struct Note *note) {
+	unsigned int length = note_samples(note);
+	Sample* audio = (Sample*)malloc(length * sizeof(Sample));
+	unsigned short wavelength = (SAMPLE_RATE / note->frequency);
+	for (unsigned int i = 0; i < length; ++i) {
+		double wave = (2 * (i % wavelength) / (double)wavelength) - 1;
+		audio[i] = (wave * note->volume * 32767);
+	}
+	return audio;
+}
+
+//Save an audio stream as a WAV file
+void audio_save(Sample* audio, unsigned int audiolength, char* path) {
 	FILE* file = fopen(path, "wb");
 	
 	//Heaader chunk
 	fprintf(file, "RIFF");
-	unsigned int chunksize = ((audiolength * sizeof(SAMPLE)) + 36);
+	unsigned int chunksize = ((audiolength * sizeof(Sample)) + 36);
 	fwrite(&chunksize, sizeof(chunksize), 1, file);
 	fprintf(file, "WAVE");
 	
@@ -26,18 +51,18 @@ void audio_save(SAMPLE* audio, unsigned int audiolength, char* path) {
 	fwrite(&numchannels, sizeof(numchannels), 1, file);
 	unsigned int samplerate = SAMPLE_RATE;
 	fwrite(&samplerate, sizeof(samplerate), 1, file);
-	unsigned int byterate = (samplerate * numchannels * sizeof(SAMPLE));
+	unsigned int byterate = (samplerate * numchannels * sizeof(Sample));
 	fwrite(&byterate, sizeof(byterate), 1, file);
-	unsigned short blockalign = (numchannels * sizeof(SAMPLE));
+	unsigned short blockalign = (numchannels * sizeof(Sample));
 	fwrite(&blockalign, sizeof(blockalign), 1, file);
-	unsigned short bitspersample = (sizeof(SAMPLE) * 8);
+	unsigned short bitspersample = (sizeof(Sample) * 8);
 	fwrite(&bitspersample, sizeof(bitspersample), 1, file);
 	
 	//Data chunk
 	fprintf(file, "data");
-	unsigned int datachunksize = (audiolength * sizeof(SAMPLE));
+	unsigned int datachunksize = (audiolength * sizeof(Sample));
 	fwrite(&datachunksize, sizeof(datachunksize), 1, file);
-	fwrite(audio, sizeof(SAMPLE), audiolength, file);
+	fwrite(audio, sizeof(Sample), audiolength, file);
 	
 	//Close the file
 	fclose(file);
