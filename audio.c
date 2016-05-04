@@ -2,6 +2,7 @@
 //A library for audio creation, sort of like midi music but not quite
 
 #include <stdio.h>
+#include <limits.h>
 
 const unsigned int SAMPLE_RATE = 48000;
 
@@ -27,7 +28,7 @@ Sample* note_audio(const Note *note) {
 	unsigned short wavelength = (SAMPLE_RATE / note->frequency);
 	for (unsigned int i = 0; i < length; ++i) {
 		double wave = (2 * (i % wavelength) / (double)wavelength) - 1;
-		audio[i] = (wave * note->volume * 32767);
+		audio[i] = (wave * note->volume * SHRT_MAX);
 	}
 	return audio;
 }
@@ -57,7 +58,7 @@ void audio_save(const Sample* audio, const unsigned int audiolength, const char*
 	fwrite(&byterate, sizeof(byterate), 1, file);
 	unsigned short blockalign = (numchannels * sizeof(Sample));
 	fwrite(&blockalign, sizeof(blockalign), 1, file);
-	unsigned short bitspersample = (sizeof(Sample) * 8);
+	unsigned short bitspersample = (sizeof(Sample) * CHAR_BIT);
 	fwrite(&bitspersample, sizeof(bitspersample), 1, file);
 	
 	//Data chunk
