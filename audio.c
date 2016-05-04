@@ -34,6 +34,29 @@ Sample* note_audio(const Note *note) {
 }
 
 
+//The representation of a track
+typedef struct {
+	Note* notes;
+	unsigned int count;
+} Track;
+
+//Get the length of a track
+double track_duration(const Track* track) {
+	double duration = 0;
+	for (unsigned int i = 0; i < track->count; ++i) {
+		if (track->notes[i].duration > duration) {
+			duration = track->notes[i].duration;
+		}
+	}
+	return duration;
+}
+
+//Get the number of samples needed to represent a track
+unsigned int track_samples(const Track* track) {
+	return (track_duration(track) * SAMPLE_RATE);
+}
+
+
 //Save an audio stream as a WAV file
 void audio_save(const Sample* audio, const unsigned int audiolength, const char* path) {
 	FILE* file = fopen(path, "wb");
