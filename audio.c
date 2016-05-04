@@ -7,20 +7,21 @@ const unsigned int SAMPLE_RATE = 48000;
 
 typedef short Sample;
 
+
 //The representation of a single note
-struct Note {
+typedef struct {
 	double frequency;
 	double volume;
-	double length;
-};
+	double duration;
+} Note;
 
 //Get the number of samples needed to represent a note
-unsigned int note_samples(struct Note *note) {
-	return (note->length * SAMPLE_RATE);
+unsigned int note_samples(const Note *note) {
+	return (note->duration * SAMPLE_RATE);
 }
 
 //Build an audio stream from a note
-Sample* note_audio(struct Note *note) {
+Sample* note_audio(const Note *note) {
 	unsigned int length = note_samples(note);
 	Sample* audio = (Sample*)malloc(length * sizeof(Sample));
 	unsigned short wavelength = (SAMPLE_RATE / note->frequency);
@@ -31,8 +32,9 @@ Sample* note_audio(struct Note *note) {
 	return audio;
 }
 
+
 //Save an audio stream as a WAV file
-void audio_save(Sample* audio, unsigned int audiolength, char* path) {
+void audio_save(const Sample* audio, const unsigned int audiolength, const char* path) {
 	FILE* file = fopen(path, "wb");
 	
 	//Heaader chunk

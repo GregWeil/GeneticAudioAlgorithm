@@ -4,7 +4,7 @@
 #include "audio.c"
 
 int main() {
-	struct Note note;
+	Note note;
 	note.frequency = 220;
 	note.volume = 0.05;
 	note.length = 1.0;
