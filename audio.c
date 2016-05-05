@@ -1,8 +1,9 @@
 /// audio.c
 //A library for audio creation, sort of like midi music but not quite
 
-#include <stdio.h>
+#include <math.h>
 #include <limits.h>
+#include <stdio.h>
 
 //Samples per second
 const unsigned int SAMPLE_RATE = 48000;
@@ -18,9 +19,14 @@ typedef struct {
 	unsigned int count;
 } Audio;
 
+typedef enum {
+	SAWTOOTH
+} Waveform;
+
 //The representation of a single note
 typedef struct {
-	double time //Start time in seconds
+	double time; //Start time in seconds
+	Waveform waveform; //The type of note
 	double frequency; //Frequency in hertz
 	double volume; //Volume from 0 to 1
 	double duration; //Duration in seconds
@@ -52,10 +58,17 @@ double audio_duration(const Audio* audio) {
 }
 
 
+double wave_sample_sawtooth(double time, double frequency) {
+	double wave = fmod(time, (1 / frequency));
+	return ((2.0 * wave * frequency) - 1.0);
+}
+
+
 //Initialize a note with default values
 Note note_initialize() {
 	Note note;
 	note.time = 0;
+	note.waveform = SAWTOOTH;
 	note.frequency = 440;
 	note.volume = 0.5;
 	note.duration = 1;
@@ -75,9 +88,8 @@ unsigned int note_samples(const Note* note) {
 //Build an audio stream from a note
 Audio note_audio(const Note* note) {
 	Audio audio = audio_initialize(note_samples(note));
-	unsigned short wavelength = (SAMPLE_RATE / note->frequency);
 	for (unsigned int i = 0; i < audio.count; ++i) {
-		double wave = (2 * (i % wavelength) / (double)wavelength) - 1;
+		double wave = wave_sample_sawtooth(i * 1.0 / SAMPLE_RATE, note->frequency);
 		audio.samples[i] = (wave * note->volume * SHRT_MAX);
 	}
 	return audio;
