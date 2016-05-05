@@ -4,7 +4,9 @@
 #include <stdio.h>
 #include <limits.h>
 
+//Samples per second
 const unsigned int SAMPLE_RATE = 48000;
+//When mixing a track, compress audio to this volume
 const double VOLUME_MAX = 0.2;
 
 //A single audio sample
@@ -18,10 +20,10 @@ typedef struct {
 
 //The representation of a single note
 typedef struct {
-	double time;
-	double frequency;
-	double volume;
-	double duration;
+	double time //Start time in seconds
+	double frequency; //Frequency in hertz
+	double volume; //Volume from 0 to 1
+	double duration; //Duration in seconds
 } Note;
 
 //The representation of a track
@@ -116,11 +118,12 @@ unsigned int track_samples(const Track* track) {
 	return (track_duration(track) * SAMPLE_RATE);
 }
 
+//Generate the audio stream for a track of notes
 Audio track_audio(const Track* track) {
 	Audio audio = audio_initialize(track_samples(track));
+	int* samples = (int*)malloc(audio.count * sizeof(int));
 	
 	//Initialize the high range samples
-	int* samples = (int*)malloc(audio.count * sizeof(int));
 	for (unsigned int i = 0; i < audio.count; ++i) {
 		samples[i] = 0;
 	}
