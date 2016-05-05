@@ -26,18 +26,33 @@ int test_note(int argc, char** argv) {
 }
 
 int test_track(int argc, char** argv) {
-	Track track = track_initialize(3);
+	Track track = track_initialize(4);
 	Note* note;
+	
 	note = &track.notes[0];
 	note->time = 0;
+	note->frequency = 660;
 	note->duration = 1;
+	
 	note = &track.notes[1];
 	note->time = 1.25;
+	note->frequency = 440;
 	note->duration = 1;
+	
 	note = &track.notes[2];
 	note->time = 2.5;
+	note->frequency = 220;
 	note->duration = 1;
-	printf("%d\n", track_samples(&track));
+	
+	note = &track.notes[3];
+	note->time = 0;
+	note->frequency = 110;
+	note->volume = 0.25;
+	note->duration = 3.5;
+	
+	Audio audio = track_audio(&track);
+	audio_save(&audio, file);
+	audio_free(&audio);
 	track_free(&track);
 	return 0;
 }

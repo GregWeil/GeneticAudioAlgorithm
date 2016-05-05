@@ -5,6 +5,7 @@
 #include <limits.h>
 
 const unsigned int SAMPLE_RATE = 48000;
+const double VOLUME_MAX = 0.2;
 
 //A single audio sample
 typedef short Sample;
@@ -54,7 +55,7 @@ Note note_initialize() {
 	Note note;
 	note.time = 0;
 	note.frequency = 440;
-	note.volume = 0.01;
+	note.volume = 0.5;
 	note.duration = 1;
 	return note;
 }
@@ -113,6 +114,42 @@ double track_duration(const Track* track) {
 //Get the number of samples needed to represent a track
 unsigned int track_samples(const Track* track) {
 	return (track_duration(track) * SAMPLE_RATE);
+}
+
+Audio track_audio(const Track* track) {
+	Audio audio = audio_initialize(track_samples(track));
+	
+	//Initialize the high range samples
+	int* samples = (int*)malloc(audio.count * sizeof(int));
+	for (unsigned int i = 0; i < audio.count; ++i) {
+		samples[i] = 0;
+	}
+	
+	//Add together all of the notes
+	for (unsigned int i = 0; i < track->count; ++i) {
+		Note* note = &track->notes[i];
+		Audio noteaudio = note_audio(note);
+		unsigned int notetime = (note->time * SAMPLE_RATE);
+		for (unsigned int j = 0; j < noteaudio.count; ++j) {
+			samples[notetime + j] += noteaudio.samples[j];
+		}
+		audio_free(&noteaudio);
+	}
+	
+	//Find the maximum loudness in the track
+	int loudest = SHRT_MAX;
+	for (unsigned int i = 0; i < audio.count; ++i) {
+		if (samples[i] > loudest) loudest = samples[i];
+		if (-samples[i] > loudest) loudest = -samples[i];
+	}
+	
+	//Compress the high range samples
+	for (unsigned int i = 0; i < audio.count; ++i) {
+		audio.samples[i] = samples[i] * (SHRT_MAX * VOLUME_MAX / loudest);
+	}
+	
+	free(samples);
+	return audio;
 }
 
 
