@@ -9,6 +9,8 @@
 const unsigned int SAMPLE_RATE = 48000;
 //When mixing a track, compress audio to this volume
 const double VOLUME_MAX = 0.2;
+//The value of PI, since I need it sometimes
+const double PI = 3.14159265358979323846;
 
 //A single audio sample
 typedef short Sample;
@@ -20,6 +22,8 @@ typedef struct {
 } Audio;
 
 typedef enum {
+	SIN,
+	SQUARE,
 	SAWTOOTH
 } Waveform;
 
@@ -58,6 +62,15 @@ double audio_duration(const Audio* audio) {
 }
 
 
+double wave_sample_sin(double time, double frequency) {
+	return sin(2.0 * PI * time * frequency);
+}
+
+double wave_sample_square(double time, double frequency) {
+	double wave = (fmod(time, (1 / frequency)) * frequency);
+	return ((wave > 0.5) - (wave < 0.5));
+}
+
 double wave_sample_sawtooth(double time, double frequency) {
 	double wave = fmod(time, (1 / frequency));
 	return ((2.0 * wave * frequency) - 1.0);
@@ -68,7 +81,7 @@ double wave_sample_sawtooth(double time, double frequency) {
 Note note_initialize() {
 	Note note;
 	note.time = 0;
-	note.waveform = SAWTOOTH;
+	note.waveform = SIN;
 	note.frequency = 440;
 	note.volume = 0.5;
 	note.duration = 1;
@@ -88,8 +101,12 @@ unsigned int note_samples(const Note* note) {
 //Build an audio stream from a note
 Audio note_audio(const Note* note) {
 	Audio audio = audio_initialize(note_samples(note));
+	double (*wavesample)(double, double);
+	if (note->waveform == SIN) wavesample = &wave_sample_sin;
+	else if (note->waveform == SQUARE) wavesample = &wave_sample_square;
+	else if (note->waveform == SAWTOOTH) wavesample = &wave_sample_sawtooth;
 	for (unsigned int i = 0; i < audio.count; ++i) {
-		double wave = wave_sample_sawtooth(i * 1.0 / SAMPLE_RATE, note->frequency);
+		double wave = (*wavesample)((i * 1.0 / SAMPLE_RATE), note->frequency);
 		audio.samples[i] = (wave * note->volume * SHRT_MAX);
 	}
 	return audio;

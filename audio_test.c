@@ -9,15 +9,25 @@
 const char* file = "audio.wav";
 
 int test_note(int argc, char** argv) {
-	if (argc < 5) {
+	if (argc < 6) {
 		printf("Wrong number of parameters\n");
-		printf("%s %s frequency volume duration\n", argv[0], argv[1]);
+		printf("%s %s waveform frequency volume duration\n", argv[0], argv[1]);
 		return 1;
 	}
 	Note note = note_initialize();
-	note.frequency = atof(argv[2]);
-	note.volume = atof(argv[3]);
-	note.duration = atof(argv[4]);
+	if (strcmp(argv[2], "sin") == 0) {
+		note.waveform = SIN;
+	} else if (strcmp(argv[2], "square") == 0) {
+		note.waveform = SQUARE;
+	} else if (strcmp(argv[2], "saw") == 0) {
+		note.waveform = SAWTOOTH;
+	} else {
+		printf("Unrecognized waveform\n");
+		return 1;
+	}
+	note.frequency = atof(argv[3]);
+	note.volume = atof(argv[4]);
+	note.duration = atof(argv[5]);
 	Audio audio = note_audio(&note);
 	audio_save(&audio, file);
 	audio_free(&audio);
@@ -31,21 +41,26 @@ int test_track(int argc, char** argv) {
 	
 	note = &track.notes[0];
 	note->time = 0;
+	note->waveform = SIN;
 	note->frequency = 660;
+	note->volume = 1;
 	note->duration = 1;
 	
 	note = &track.notes[1];
 	note->time = 1.25;
+	note->waveform = SQUARE;
 	note->frequency = 440;
 	note->duration = 1;
 	
 	note = &track.notes[2];
 	note->time = 2.5;
+	note->waveform = SAWTOOTH;
 	note->frequency = 220;
 	note->duration = 1;
 	
 	note = &track.notes[3];
 	note->time = 0;
+	note->waveform = SAWTOOTH;
 	note->frequency = 110;
 	note->volume = 0.25;
 	note->duration = 3.5;
