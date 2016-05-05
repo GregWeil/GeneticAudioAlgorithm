@@ -14,7 +14,7 @@ int test_note(int argc, char** argv) {
 		printf("%s %s frequency volume duration\n", argv[0], argv[1]);
 		return 1;
 	}
-	Note note;
+	Note note = note_initialize();
 	note.frequency = atof(argv[2]);
 	note.volume = atof(argv[3]);
 	note.duration = atof(argv[4]);

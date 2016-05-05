@@ -16,6 +16,15 @@ typedef struct {
 	double duration;
 } Note;
 
+//Initialize a note with default values
+Note note_initialize() {
+	Note note;
+	note.frequency = 440;
+	note.volume = 0.01;
+	note.duration = 1;
+	return note;
+}
+
 //Get the number of samples needed to represent a note
 unsigned int note_samples(const Note *note) {
 	return (note->duration * SAMPLE_RATE);
@@ -39,6 +48,13 @@ typedef struct {
 	Note* notes;
 	unsigned int count;
 } Track;
+
+Track track_initialize() {
+	Track track;
+	track.notes = NULL;
+	track.count = 0;
+	return track;
+}
 
 //Get the length of a track
 double track_duration(const Track* track) {
