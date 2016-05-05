@@ -6,8 +6,14 @@
 
 const unsigned int SAMPLE_RATE = 48000;
 
+//A single audio sample
 typedef short Sample;
 
+//The type definition for an audio stream
+typedef struct {
+	Sample* samples;
+	unsigned int count;
+} Audio;
 
 //The representation of a single note
 typedef struct {
@@ -15,6 +21,32 @@ typedef struct {
 	double volume;
 	double duration;
 } Note;
+
+//The representation of a track
+typedef struct {
+	Note* notes;
+	unsigned int count;
+} Track;
+
+
+//Initialize an audio stream with a number of samples
+Audio audio_initialize(const unsigned int length) {
+	Audio audio;
+	audio.samples = (Sample*)malloc(length * sizeof(Sample));
+	audio.count = length;
+	return audio;
+}
+
+//Free data used by an audio stream
+void audio_free(const Audio* audio) {
+	free(audio->samples);
+}
+
+//Get the duration of an audio clip
+double audio_duration(const Audio* audio) {
+	return (audio->count * 1.0 / SAMPLE_RATE);
+}
+
 
 //Initialize a note with default values
 Note note_initialize() {
@@ -25,35 +57,42 @@ Note note_initialize() {
 	return note;
 }
 
+//Free data used by a note
+void note_free(const Note* note) {
+	//Nothing to be done
+}
+
 //Get the number of samples needed to represent a note
-unsigned int note_samples(const Note *note) {
+unsigned int note_samples(const Note* note) {
 	return (note->duration * SAMPLE_RATE);
 }
 
 //Build an audio stream from a note
-Sample* note_audio(const Note *note) {
-	unsigned int length = note_samples(note);
-	Sample* audio = (Sample*)malloc(length * sizeof(Sample));
+Audio note_audio(const Note* note) {
+	Audio audio = audio_initialize(note_samples(note));
 	unsigned short wavelength = (SAMPLE_RATE / note->frequency);
-	for (unsigned int i = 0; i < length; ++i) {
+	for (unsigned int i = 0; i < audio.count; ++i) {
 		double wave = (2 * (i % wavelength) / (double)wavelength) - 1;
-		audio[i] = (wave * note->volume * SHRT_MAX);
+		audio.samples[i] = (wave * note->volume * SHRT_MAX);
 	}
 	return audio;
 }
 
 
-//The representation of a track
-typedef struct {
-	Note* notes;
-	unsigned int count;
-} Track;
-
+//Initialize a track with default values
 Track track_initialize() {
 	Track track;
 	track.notes = NULL;
 	track.count = 0;
 	return track;
+}
+
+//Free data used by a track
+void track_free(const Track* track) {
+	for (unsigned int i = 0; i < track->count; ++i) {
+		note_free(&track->notes[i]);
+	}
+	free(track->notes);
 }
 
 //Get the length of a track
@@ -74,12 +113,12 @@ unsigned int track_samples(const Track* track) {
 
 
 //Save an audio stream as a WAV file
-void audio_save(const Sample* audio, const unsigned int audiolength, const char* path) {
+void audio_save(const Audio* audio, const char* path) {
 	FILE* file = fopen(path, "wb");
 	
 	//Heaader chunk
 	fprintf(file, "RIFF");
-	unsigned int chunksize = ((audiolength * sizeof(Sample)) + 36);
+	unsigned int chunksize = ((audio->count * sizeof(Sample)) + 36);
 	fwrite(&chunksize, sizeof(chunksize), 1, file);
 	fprintf(file, "WAVE");
 	
@@ -102,9 +141,9 @@ void audio_save(const Sample* audio, const unsigned int audiolength, const char*
 	
 	//Data chunk
 	fprintf(file, "data");
-	unsigned int datachunksize = (audiolength * sizeof(Sample));
+	unsigned int datachunksize = (audio->count * sizeof(Sample));
 	fwrite(&datachunksize, sizeof(datachunksize), 1, file);
-	fwrite(audio, sizeof(Sample), audiolength, file);
+	fwrite(audio->samples, sizeof(Sample), audio->count, file);
 	
 	//Close the file
 	fclose(file);

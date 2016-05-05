@@ -18,9 +18,9 @@ int test_note(int argc, char** argv) {
 	note.frequency = atof(argv[2]);
 	note.volume = atof(argv[3]);
 	note.duration = atof(argv[4]);
-	Sample* audio = note_audio(&note);
-	audio_save(audio, note_samples(&note), file);
-	free(audio);
+	Audio audio = note_audio(&note);
+	audio_save(&audio, file);
+	audio_free(&audio);
 	return 0;
 }
 
