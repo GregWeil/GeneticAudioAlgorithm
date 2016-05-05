@@ -17,6 +17,7 @@ typedef struct {
 
 //The representation of a single note
 typedef struct {
+	double time;
 	double frequency;
 	double volume;
 	double duration;
@@ -32,8 +33,8 @@ typedef struct {
 //Initialize an audio stream with a number of samples
 Audio audio_initialize(const unsigned int length) {
 	Audio audio;
-	audio.samples = (Sample*)malloc(length * sizeof(Sample));
 	audio.count = length;
+	audio.samples = (Sample*)malloc(audio.count * sizeof(Sample));
 	return audio;
 }
 
@@ -51,6 +52,7 @@ double audio_duration(const Audio* audio) {
 //Initialize a note with default values
 Note note_initialize() {
 	Note note;
+	note.time = 0;
 	note.frequency = 440;
 	note.volume = 0.01;
 	note.duration = 1;
@@ -80,10 +82,13 @@ Audio note_audio(const Note* note) {
 
 
 //Initialize a track with default values
-Track track_initialize() {
+Track track_initialize(unsigned int length) {
 	Track track;
-	track.notes = NULL;
-	track.count = 0;
+	track.count = length;
+	track.notes = (Note*)malloc(track.count * sizeof(Note));
+	for (unsigned int i = 0; i < track.count; ++i) {
+		track.notes[i] = note_initialize();
+	}
 	return track;
 }
 
@@ -99,9 +104,8 @@ void track_free(const Track* track) {
 double track_duration(const Track* track) {
 	double duration = 0;
 	for (unsigned int i = 0; i < track->count; ++i) {
-		if (track->notes[i].duration > duration) {
-			duration = track->notes[i].duration;
-		}
+		double time = (track->notes[i].time + track->notes[i].duration);
+		if (time > duration) duration = time;
 	}
 	return duration;
 }

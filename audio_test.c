@@ -21,6 +21,24 @@ int test_note(int argc, char** argv) {
 	Audio audio = note_audio(&note);
 	audio_save(&audio, file);
 	audio_free(&audio);
+	note_free(&note);
+	return 0;
+}
+
+int test_track(int argc, char** argv) {
+	Track track = track_initialize(3);
+	Note* note;
+	note = &track.notes[0];
+	note->time = 0;
+	note->duration = 1;
+	note = &track.notes[1];
+	note->time = 1.25;
+	note->duration = 1;
+	note = &track.notes[2];
+	note->time = 2.5;
+	note->duration = 1;
+	printf("%d\n", track_samples(&track));
+	track_free(&track);
 	return 0;
 }
 
@@ -31,6 +49,8 @@ int main(int argc, char** argv) {
 	}
 	if (strcmp(argv[1], "note") == 0) {
 		return test_note(argc, argv);
+	} else if (strcmp(argv[1], "track") == 0) {
+		return test_track(argc, argv);
 	}
 	printf("Unrecognized command\n");
 	return 1;
