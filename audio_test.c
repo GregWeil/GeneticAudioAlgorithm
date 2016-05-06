@@ -72,6 +72,32 @@ int test_track(int argc, char** argv) {
 	return 0;
 }
 
+int test_binary(int argc, char** argv) {
+	if (argc < 7) {
+		printf("Wrong number of parameters\n");
+		printf("%s %s bytes songduration noteduration frequencymax seed\n", argv[0], argv[1]);
+		return 1;
+	}
+	
+	srand(atoi(argv[6]));
+	unsigned int length = atoi(argv[2]);
+	char* array = malloc(length * sizeof(char));
+	for (unsigned int i = 0; i < length; ++i) {
+		array[i] = ((rand() % UCHAR_MAX) + CHAR_MIN);
+	}
+	
+	Track track = track_initialize_from_binary(array, length,
+		atof(argv[3]), atof(argv[4]), atof(argv[5]));
+	printf("%d notes (%d bytes each)\n", track.count, length/track.count);
+	printf("%f seconds\n", track_duration(&track));
+	Audio audio = track_audio(&track);
+	audio_save(&audio, file);
+	audio_free(&audio);
+	track_free(&track);
+	free(array);
+	return 0;
+}
+
 int main(int argc, char** argv) {
 	if (argc < 2) {
 		printf("No command specified\n");
@@ -81,6 +107,8 @@ int main(int argc, char** argv) {
 		return test_note(argc, argv);
 	} else if (strcmp(argv[1], "track") == 0) {
 		return test_track(argc, argv);
+	} else if (strcmp(argv[1], "binary") == 0) {
+		return test_binary(argc, argv);
 	}
 	printf("Unrecognized command\n");
 	return 1;

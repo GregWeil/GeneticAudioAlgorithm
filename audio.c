@@ -8,7 +8,7 @@
 //Samples per second
 const unsigned int SAMPLE_RATE = 48000;
 //When mixing a track, compress audio to this volume
-const double VOLUME_MAX = 0.2;
+const double VOLUME_MAX = 0.25;
 //The value of PI, since I need it sometimes
 const double PI = 3.14159265358979323846;
 
@@ -184,6 +184,43 @@ Audio track_audio(const Track* track) {
 	return audio;
 }
 
+
+//Generate a track based on an array of chars
+Track track_initialize_from_binary(const char* data, const unsigned int size,
+	const double timemax, const double durationmax, const double frequencymax)
+{
+	//The size of different parts of the data
+	const unsigned int startsize = sizeof(unsigned int);
+	const unsigned int wavesize = sizeof(unsigned char);
+	const unsigned int frequencysize = sizeof(unsigned int);
+	const unsigned int volumesize = sizeof(unsigned char);
+	const unsigned int durationsize = sizeof(unsigned short);
+	
+	//The total size of a note
+	const unsigned int notesize = (startsize + wavesize
+		+ frequencysize + volumesize + durationsize);
+	
+	Track track = track_initialize(size / notesize);
+	for (unsigned int i = 0; i < track.count; ++i) {
+		unsigned int index = (i * notesize);
+		Note* note = &track.notes[i];
+		note->time = (*(unsigned int*)&data[index] * timemax / UINT_MAX);
+		index += startsize;
+		unsigned char wave = (*(unsigned char*)&data[index] % 3);
+		if (wave == 0) note->waveform = SIN;
+		else if (wave == 1) note->waveform = SQUARE;
+		else if (wave == 2) note->waveform = SAWTOOTH;
+		index += wavesize;
+		note->frequency = (*(unsigned int*)&data[index] * frequencymax / UINT_MAX);
+		index += frequencysize;
+		note->volume = (*(unsigned char*)&data[index] * 1.0 / UCHAR_MAX);
+		index += volumesize;
+		note->duration = (*(unsigned short*)&data[index] * durationmax / USHRT_MAX);
+		index += durationsize;
+	}
+	
+	return track;
+}
 
 //Save an audio stream as a WAV file
 void audio_save(const Audio* audio, const char* path) {
