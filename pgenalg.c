@@ -5,23 +5,12 @@
 /* Greg Weil ***************************************************************/
 /***************************************************************************/
 
+#include "pgenalg.h"
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
-#include<clcg4.h>
 #include<mpi.h>
 #include<pthread.h>
-
-#define MAX_GENES 4096
-
-#define RAND_CHAR (char)(GenVal(mpi_myrank)*255);
-
-typedef struct {
-	char genes[MAX_GENES];
-	float fitness;
-	int length;//length of genes
-	
-} chromosome;
 
 chromosome* population; 
 chromosome* new_population; //for switchover
@@ -33,23 +22,38 @@ int threads_per_rank;//number of threads per rank
 double mutation_rate = 0.05;//mutation rate
 double crossover_rate = 0.97;//crossover rate
 
+//thread-safe rng stuff
+struct drand48_data drand_buf;
+double dv;
+
+double randv(){
+	//return random value, assumes seed has been called
+	drand48_r(&drand_buf, &dv);
+	return dv;
+}
+
 unsigned int randr(unsigned int min, unsigned int max){
 	//rand value in range
-	return (max - min +1)*GenVal(mpi_myrank) + min;
+	return (max - min +1)*randv() + min;
 }
 
 void* evaluate(void* input) {
 	//evaluate the fitness of a chromosome
-	int threadID = (int)input;
-	
 	//Thread I is responsible for chromosomes (I*P/N to I*P/N + P/N).
-	
+	int threadID = *((int *)input);
 	int chunk_size = population_size / threads_per_rank;
+	int i;
 	
-	for(int i=threadID*chunk_size; i < threadID*chunk_size + chunk_size; i++){
+	for(i=threadID*chunk_size; i < threadID*chunk_size + chunk_size; i++){
+		//begin test evaluation
 		chromosome chromo = population[i];
-		chromo.fitness = 0;
-		/* do evaluation function for chromosome */
+		chromo.fitness = chromo.length;
+		population[i] = chromo;
+		//end test evaluation
+		
+		///printf("thread: %d index: %d fitness: %.5f size: %d\n",threadID,i,chromo.fitness,chromo.length);
+		
+		/* DO ACTUAL EVALUATION HERE */
 	}
 
 	return 0;
@@ -57,28 +61,24 @@ void* evaluate(void* input) {
 
 void* breed(void* input){
 	//do crossover and mutation
-	int threadID = (int)input;
-	
 	//Thread I is responsible for chromosomes (I*P/N to I*P/N + P/N).
-	
+	int threadID = *((int *)input);
 	int chunk_size = population_size / threads_per_rank;
+	int i;
 	
-	for(int i=threadID*chunk_size; i < threadID*chunk_size + chunk_size; i+=2){
-		chromosome* ch1 = tournament_selection(8);
-		chromosome* ch2 = tournament_selection(8);
-		
+	for(i=threadID*chunk_size; i < threadID*chunk_size + chunk_size; i+=2){
+		chromosome ch1 = *tournament_selection(8);
+		chromosome ch2 = *tournament_selection(8);
 		chromosome ret[2];//return buffer for new chromosomes
 		
 		//do crossover
-		if(GenVal(mpi_myrank) < crossover_rate){
-			one_point_crossover(&ch1, &ch2, &ret);
+		if(randv() < crossover_rate){
+			one_point_crossover(ch1, ch2, ret);
 		}
 
 		//do mutations
-		mutate(ret[0]);
-		mutate(ret[1]);
-		
-		//add to new population
+		mutate(&ret[0]);
+		mutate(&ret[1]);
 		new_population[i] = ret[0];
 		new_population[i+1] = ret[1];
 	}
@@ -86,29 +86,21 @@ void* breed(void* input){
 	return 0;
 }
 
-void one_point_crossover(chromosome* ch1, chromosome* ch2, chromosome** out){
+void one_point_crossover(chromosome ch1, chromosome ch2, chromosome* out){
         //Perform one point crossover between two chromosomes
-
-		double r = GenVal(mpi_myrank);
-		
-        int r1 = (int)(strlen(ch1->genes) * r);
-        int r2 = (int)(strlen(ch2->genes) * r);
-		
+		double r = randv();
+        int r1 = (int)(ch1.length * r);
+        int r2 = (int)(ch2.length * r);
 		//slice ch1 and ch2 and swap the partitions
-		
-		int nlen1 = (r1 + ch2->length - r2);
-		int nlen2 = (r2 + ch1->length - r1);
-		
+		int nlen1 = (r1 + ch2.length - r2);
+		int nlen2 = (r2 + ch1.length - r1);
 		chromosome newch1, newch2;
-		
-		strncpy(newch1.genes, ch1->genes, ch1->length);//copy ch1 to newch1
-		strncpy(newch2.genes, ch2->genes, ch2->length);//copy ch2 to newch2
-		
-		strncpy(newch1[r1], ch2->genes[r2], ch2->length - r2);//copy right chunk of ch2 to right chunk of newch1
-		strncpy(newch2[r2], ch1->genes[r1], ch1->length - r1);//copy right chunk of ch1 to right chunk of newch2
+		memcpy(newch1.genes, ch1.genes, ch1.length);//copy ch1 to newch1
+		memcpy(newch2.genes, ch2.genes, ch2.length);//copy ch2 to newch2
+		memcpy(newch1.genes + r1, ch2.genes + r2, ch2.length - r2);//copy right chunk of ch2 to right chunk of newch1
+		memcpy(newch2.genes + r2, ch1.genes + r1, ch1.length - r1);//copy right chunk of ch1 to right chunk of newch2
 		newch1.length = nlen1;
 		newch2.length = nlen2;
-		
 		out[0] = newch1;
 		out[1] = newch2;
 }
@@ -116,22 +108,25 @@ void one_point_crossover(chromosome* ch1, chromosome* ch2, chromosome** out){
 void mutate(chromosome* chromo){
 	//mutate a chromosome in place
 
-	for(int i=0; i<chromo->length;i++){
-		if(GenVal(mpi_myrank) < mutation_rate){//randomly mutate based on mutation rate
-			switch(randr(0,3)){
+	int i;
+	for(i=0; i<chromo->length;i++){
+		if(randv() < mutation_rate){//randomly mutate based on mutation rate
+			switch(randr(0,2)){
 				case 0://insertion
 					if(chromo->length < MAX_GENES){//only insert if room left in memory
-						memmove(chromo->genes[i+1],chromo->genes[i],chromo->length-i);
-						chromo->genes[i] = RAND_CHAR;
+						memmove(chromo->genes + i + 1,chromo->genes + i, chromo->length-i);
+						chromo->genes[i] = (char)randr(65,90);//RAND_CHAR;
+						chromo->length += 1;
 					}
 					break;
 					
 				case 1://deletion
-					memmove(chromo->genes[i],chromo->genes[i+1],chromo->length-i-1);
+					memmove(chromo->genes + i,chromo->genes + i + 1,chromo->length-i-1);
+					chromo->length -= 1;
 					break;
 					
 				case 2://substitution
-					chromo->genes[i] = RAND_CHAR;
+					chromo->genes[i] = (char)randr(65,90);//RAND_CHAR;
 					break;
 				
 				default:
@@ -143,74 +138,75 @@ void mutate(chromosome* chromo){
 
 chromosome* random_chromosome_from_population(){
 	//return pointer to a random chromosome in the population
-	int random_index = (int)(GenVal(mpi_myrank) * (population_size-1));
-	return &population[random_index];
-}
-
-chromosome* weighted_random_chromosome_from_population(){
-	//return pointer to a chromosome in the population chosen randomly, weighted by fitness
-	int sum_of_weight = 0;
-	for(int i=0; i<population_size; i++) {
-		sum_of_weight += population[i].fitness;
-	}
-	int rnd = (int)(GenVal(mpi_myrank) * sum_of_weight);
-	for(int i=0; i<population_size; i++) {
-		if(rnd < population[i].fitness){
-			return &population[i];
-		}
-		rnd -= population[i].fitness;
-	}
+	int random_index = (int)(randv() * (population_size-1));
+	return population + random_index;
 }
 
 chromosome* tournament_selection(int tournament_size){
-		//returns most fit candidate from tournament of size <tournament_size>
+		//returns pointer to the most fit candidate from tournament of size <tournament_size>
         chromosome* best = random_chromosome_from_population();
-		for(int i=0; i<tournament_size; i++){
+		int i;
+		for(i=0; i<tournament_size; i++){
             chromosome* chromo = random_chromosome_from_population();
 			if(chromo->fitness > best->fitness){//assumes higher fitness is better
 				best = chromo;
 			}
 		}
-        return best
+        return best;
 }
 
-
-
 int main(int argc, char *argv[]){
-	MPI_Request request;
+	
+	//initialize MPI for K ranks
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &mpi_commsize);
+	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_myrank);
+
+	//set RNG seed	
+	srand48_r (1202107158 + mpi_myrank * 1999, &drand_buf);
+	
+	//MPI_Request request;
 	MPI_Status status;
 	population_size = atoi(argv[1]);
 	max_generations = atoi(argv[2]); 
 	threads_per_rank = atoi(argv[3]);
 	
 	pthread_t* threads = malloc(threads_per_rank * sizeof(pthread_t));
+	int* threadData = malloc(threads_per_rank * sizeof(int));
 	
-	//initialize MPI for K ranks
-	MPI_Init(&argc, &argv);
-	MPI_Comm_size(MPI_COMM_WORLD, &mpi_commsize);
-	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_myrank);
-	InitDefault();//initialize RNG streams
-	
-
 	//create initial population
 	population = malloc(population_size * sizeof(chromosome));
 	new_population = malloc(population_size * sizeof(chromosome));
-	for(int i=0; i<population_size;i++){
+	
+	/* create a mpi struct for chromosome */
+    int blocklengths[3] = {MAX_GENES,1,1};
+    MPI_Datatype types[3] = {MPI_CHAR, MPI_FLOAT, MPI_INT};
+    MPI_Datatype MPI_CHROMO;
+    MPI_Aint offsets[3];
+    offsets[0] = offsetof(chromosome, genes);
+    offsets[1] = offsetof(chromosome, fitness);
+	offsets[2] = offsetof(chromosome, length);
+    MPI_Type_create_struct(3, blocklengths, offsets, types, &MPI_CHROMO);
+    MPI_Type_commit(&MPI_CHROMO);
+	
+	int i,j,generation;//loop vars
+	
+	for(i=0; i<population_size;i++){
 		chromosome tmp;
 		tmp.fitness = 0;
-		int length = randr(5,50);//start chromosomes between 5 and 50 genes
+		int length = randr(5,20);//start chromosomes between 5 and 50 genes
 		tmp.length = length;
-		for(int j=0;j<length;j++){//assign random char values (0-255)
-			tmp.genes[i] = RAND_CHAR;
+		for(j=0;j<length;j++){//assign random char values (0-255)
+			tmp.genes[j] = (char)randr(65,90);//RAND_CHAR;
 		}
 		population[i] = tmp;
+		///printf("Rank: %d chromo: <%.*s> %d \n",mpi_myrank,tmp.length,tmp.genes,tmp.length);
 	}
 	
-	MPI_Barrier(MPI_COMM_WORLD);
-	
+	MPI_Barrier(MPI_COMM_WORLD);	
 	
 	//run for max_generations
-	for(int generation=0; generation < max_generations; generation++){
+	for(generation=1; generation <= max_generations; generation++){
 
 		/* 
 		
@@ -219,14 +215,28 @@ int main(int argc, char *argv[]){
 		
 		*/
 		
+		//printf("begin evaluation\n");
 		
-		for (int i = 0; i < threads_per_rank; ++i) {
-			pthread_create(&threads[i], NULL, evaluate, (void*)i);
+		for (i = 0; i < threads_per_rank; i++) {
+			threadData[i] = i;
+			pthread_create(&threads[i], NULL, evaluate, threadData + i);
 		}
-		for (int i = 0; i < threads_per_rank; ++i) {
+		for (i = 0; i < threads_per_rank; i++) {
 			pthread_join(threads[i], NULL);
 		}
 		
+		//print some metrics every 10 generations
+		if(mpi_myrank == 0 && generation%10==0){
+			float max_fitness = 0;
+			for(i=0; i<population_size; i++){
+				chromosome tmp = population[i];
+				///printf("index: %d fitness %.5f size: %d\n",i,tmp.fitness,tmp.length);
+				if(tmp.fitness > max_fitness){
+					max_fitness = tmp.fitness;
+				}
+			}
+			printf("Generation %d:\n\tMax fitness: %.5f\n",generation,max_fitness);
+		}
 		
 		/*
 		
@@ -234,21 +244,20 @@ int main(int argc, char *argv[]){
 		randomly chosen to be distributed among the other (K-1) populations. 
 		
 		*/
-		
+
 		//exchange one chromosome with every other population
-		for(int i=0; i<mpi_commsize; i++){
+		for(i=0; i<mpi_commsize; i++){
 			if(i ==  mpi_myrank){//don't send to self
 				continue;
 			}else{
-				chromosome* tmp = weighted_random_chromosome_from_population();				
-				//recv buffer max size set to max gene size
-				char tmprecv[MAX_GENES];
-				MPI_Sendrecv(tmp->genes, tmp->length, MPI_CHAR, i, 0, tmprecv, MAX_GENES, MPI_CHAR, i, 0, MPI_COMM_WORLD, status);
-				//copy over new data
-				tmp->length = strlen(tmprecv);
-				strncpy(tmp->genes, tmprecv, tmp->length);		
+				chromosome* tmp = tournament_selection(8);//fitness-based random chromo to exchange
+				///printf("rank %d sent <%.*s> %.5f to rank %d\n",mpi_myrank,tmp->length,tmp->genes,tmp->fitness,i);
+				chromosome recv;				
+				MPI_Sendrecv(tmp, 1, MPI_CHROMO, i, 0, &recv, 1, MPI_CHROMO, i, 0, MPI_COMM_WORLD, &status);
+				*tmp = recv;
+				///printf("rank %d received <%.*s> %.5f from rank %d\n",mpi_myrank,tmp->length,tmp->genes,tmp->fitness,i);
 			}
-		}			
+		}	
 		
 		/*
 		
@@ -259,35 +268,30 @@ int main(int argc, char *argv[]){
 		
 		*/
 		
-		for (int i = 0; i < threads_per_rank; ++i) {
-			pthread_create(&threads[i], NULL, breed, (void*)i);
+		for (i = 0; i < threads_per_rank; i++) {
+			threadData[i] = i;
+			pthread_create(&threads[i], NULL, breed, threadData + i);
 		}
-		for (int i = 0; i < threads_per_rank; ++i) {
+		for (i = 0; i < threads_per_rank; i++) {
 			pthread_join(threads[i], NULL);
 		}
 		
 		//switch to new population
-		population = new_population;
-		
-		
-		//print some metrics every 10 generations
-		if(generation%10==0){
-			float max_fitness = 0;
-			for(int i=0; i<population_size; i++){
-				chromosome tmp = population[i];
-				if(i.fitness > max_fitness){
-					max_fitness = i.fitness;
-				}
-			}
-			printf("Generation %d:\n\tMax fitness: %.5f\n",generation,max_fitness);
+		for(i=0; i<population_size;i++){
+			population[i] = new_population[i];
 		}
+
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD);	
-    MPI_Finalize();
+	MPI_Finalize();
+	
 	free(threads);
+	free(threadData);
 	free(population);
 	free(new_population);
+	
+    
 	
     return 0;
 }
