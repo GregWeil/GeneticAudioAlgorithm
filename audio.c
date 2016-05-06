@@ -24,6 +24,7 @@ typedef struct {
 typedef enum {
 	SIN,
 	SQUARE,
+	TRIANGLE,
 	SAWTOOTH
 } Waveform;
 
@@ -71,6 +72,11 @@ double wave_sample_square(double time, double frequency) {
 	return ((wave > 0.5) - (wave < 0.5));
 }
 
+double wave_sample_triangle(double time, double frequency) {
+	double wave = fmod(time, (1 / frequency));
+	return (fabs((4.0 * wave * frequency) - 2.0) - 1.0);
+}
+
 double wave_sample_sawtooth(double time, double frequency) {
 	double wave = fmod(time, (1 / frequency));
 	return ((2.0 * wave * frequency) - 1.0);
@@ -104,6 +110,7 @@ Audio note_audio(const Note* note) {
 	double (*wavesample)(double, double);
 	if (note->waveform == SIN) wavesample = &wave_sample_sin;
 	else if (note->waveform == SQUARE) wavesample = &wave_sample_square;
+	else if (note->waveform == TRIANGLE) wavesample = &wave_sample_triangle;
 	else if (note->waveform == SAWTOOTH) wavesample = &wave_sample_sawtooth;
 	for (unsigned int i = 0; i < audio.count; ++i) {
 		double wave = (*wavesample)((i * 1.0 / SAMPLE_RATE), note->frequency);
@@ -206,10 +213,11 @@ Track track_initialize_from_binary(const char* data, const unsigned int size,
 		Note* note = &track.notes[i];
 		note->time = (*(unsigned int*)&data[index] * timemax / UINT_MAX);
 		index += startsize;
-		unsigned char wave = (*(unsigned char*)&data[index] % 3);
+		unsigned char wave = (*(unsigned char*)&data[index] % 4);
 		if (wave == 0) note->waveform = SIN;
 		else if (wave == 1) note->waveform = SQUARE;
-		else if (wave == 2) note->waveform = SAWTOOTH;
+		else if (wave == 2) note->waveform = TRIANGLE;
+		else if (wave == 3) note->waveform = SAWTOOTH;
 		index += wavesize;
 		note->frequency = (*(unsigned int*)&data[index] * frequencymax / UINT_MAX);
 		index += frequencysize;

@@ -19,6 +19,8 @@ int test_note(int argc, char** argv) {
 		note.waveform = SIN;
 	} else if (strcmp(argv[2], "square") == 0) {
 		note.waveform = SQUARE;
+	} else if (strcmp(argv[2], "triangle") == 0) {
+		note.waveform = TRIANGLE;
 	} else if (strcmp(argv[2], "saw") == 0) {
 		note.waveform = SAWTOOTH;
 	} else {
