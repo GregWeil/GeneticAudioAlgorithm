@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <float.h>
 #include "sndfile.h"
 #include "fftw3.h"
 #include "comparison.h"
@@ -192,10 +193,21 @@ double AudioComparison(double* samples, int numSamples, double** goal, int goals
 	//testfile is the name of the .wav file to get the fitness of
 	//goal is the FFT of the original audio file we are trying to emulate
 	//size is the size of the first dimension of goal. the second dimension is always size 2.
+	if(!samples || numSamples == 0){
+		//tesfile is empty, return worst possible fitness
+		return DBL_MAX;
+	}
+	if(!goal || goalsize == 0){
+		printf("error: goal file data not passed in correctly!");
+		return DBL_MAX;
+	}
 
 	double** test = NULL;
 	int testsize = PassAudioData(samples, numSamples, &test);
-	//printf("size: %d\n", testsize);
+	if( !testsize ){
+		printf("PassAudioData failed!");
+		return DBL_MAX;
+	}
 
 	double fitness;
 	int i;
