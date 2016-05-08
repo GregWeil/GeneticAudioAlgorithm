@@ -13,6 +13,7 @@
 #include<mpi.h>
 #include<pthread.h>
 #include "audio.c"
+#include "comparison.h"
 
 chromosome* population; 
 chromosome* new_population; //for switchover
@@ -31,6 +32,9 @@ double frequency_max = 25000;
 //thread-safe rng stuff
 struct drand48_data drand_buf;
 double dv;
+
+//DFT data for input file
+double** file_dft_data;
 
 double randv(){
 	//return random value, assumes seed has been called
@@ -192,8 +196,11 @@ int main(int argc, char *argv[]){
 	population_size = atoi(argv[1]);
 	max_generations = atoi(argv[2]); 
 	threads_per_rank = atoi(argv[3]);
-	input_file = argv[4];
-	output_directory = argv[5];
+	char* input_file = argv[4];
+	char* output_directory = argv[5];
+	
+	//read input file
+	ReadAudioFile(input_file, &file_dft_data);
 
 	//set RNG seed	
 	srand48_r (1202107158 + mpi_myrank * 1999, &drand_buf);
