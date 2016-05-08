@@ -55,8 +55,8 @@ void* evaluate(void* input) {
 	int i;
 	
 	for(i=threadID*chunk_size; i < threadID*chunk_size + chunk_size; i++){
-		/*//begin test evaluation
 		chromosome chromo = population[i];
+		/*//begin test evaluation
 		chromo.fitness = chromo.length;
 		population[i] = chromo;
 		//end test evaluation*/
