@@ -13,7 +13,7 @@ unsigned int SAMPLE_RATE = 48000;
 double VOLUME_MAX = 0.25;
 
 //A single audio sample
-typedef short Sample;
+typedef double Sample;
 
 //The type definition for an audio stream
 typedef struct {
@@ -115,7 +115,7 @@ Audio note_audio(const Note* note) {
 	unsigned int i;
 	for (i = 0; i < audio.count; ++i) {
 		double wave = (*wavesample)((i * 1.0 / SAMPLE_RATE), note->frequency);
-		audio.samples[i] = (wave * note->volume * SHRT_MAX);
+		audio.samples[i] = (wave * note->volume);
 	}
 	return audio;
 }
@@ -161,13 +161,8 @@ unsigned int track_samples(const Track* track) {
 //Generate the audio stream for a track of notes
 Audio track_audio(const Track* track) {
 	Audio audio = audio_initialize(track_samples(track));
-	int* samples = (int*)malloc(audio.count * sizeof(int));
 	unsigned int i, j;
-	
-	//Initialize the high range samples
-	for (i = 0; i < audio.count; ++i) {
-		samples[i] = 0;
-	}
+	double loudest = 1;
 	
 	//Add together all of the notes
 	for (i = 0; i < track->count; ++i) {
@@ -175,24 +170,21 @@ Audio track_audio(const Track* track) {
 		Audio noteaudio = note_audio(note);
 		unsigned int notetime = (note->time * SAMPLE_RATE);
 		for (j = 0; j < noteaudio.count; ++j) {
-			samples[notetime + j] += noteaudio.samples[j];
+			audio.samples[notetime + j] += noteaudio.samples[j];
 		}
 		audio_free(&noteaudio);
 	}
 	
 	//Find the maximum loudness in the track
-	int loudest = SHRT_MAX;
 	for (i = 0; i < audio.count; ++i) {
-		if (samples[i] > loudest) loudest = samples[i];
-		if (-samples[i] > loudest) loudest = -samples[i];
+		loudest = fmax(loudest, fabs(audio.samples[i]));
 	}
 	
 	//Compress the high range samples
 	for (i = 0; i < audio.count; ++i) {
-		audio.samples[i] = samples[i] * (SHRT_MAX * VOLUME_MAX / loudest);
+		audio.samples[i] = (audio.samples[i] * VOLUME_MAX / loudest);
 	}
 	
-	free(samples);
 	return audio;
 }
 
@@ -240,9 +232,17 @@ Track track_initialize_from_binary(const char* data, const unsigned int size,
 void audio_save(const Audio* audio, const char* path) {
 	FILE* file = fopen(path, "wb");
 	
+	//Encode samples to 16 bit
+	typedef short EncodedSample;
+	EncodedSample* samples = (EncodedSample*)malloc(audio->count * sizeof(EncodedSample));
+	unsigned int i;
+	for (i = 0; i < audio->count; ++i) {
+		samples[i] = (fmin(fmax(audio->samples[i], 0), 1) * SHRT_MAX);
+	}
+	
 	//Heaader chunk
 	fprintf(file, "RIFF");
-	unsigned int chunksize = ((audio->count * sizeof(Sample)) + 36);
+	unsigned int chunksize = ((audio->count * sizeof(EncodedSample)) + 36);
 	fwrite(&chunksize, sizeof(chunksize), 1, file);
 	fprintf(file, "WAVE");
 	
@@ -256,18 +256,21 @@ void audio_save(const Audio* audio, const char* path) {
 	fwrite(&numchannels, sizeof(numchannels), 1, file);
 	unsigned int samplerate = SAMPLE_RATE;
 	fwrite(&samplerate, sizeof(samplerate), 1, file);
-	unsigned int byterate = (samplerate * numchannels * sizeof(Sample));
+	unsigned int byterate = (samplerate * numchannels * sizeof(EncodedSample));
 	fwrite(&byterate, sizeof(byterate), 1, file);
-	unsigned short blockalign = (numchannels * sizeof(Sample));
+	unsigned short blockalign = (numchannels * sizeof(EncodedSample));
 	fwrite(&blockalign, sizeof(blockalign), 1, file);
-	unsigned short bitspersample = (sizeof(Sample) * CHAR_BIT);
+	unsigned short bitspersample = (sizeof(EncodedSample) * CHAR_BIT);
 	fwrite(&bitspersample, sizeof(bitspersample), 1, file);
 	
 	//Data chunk
 	fprintf(file, "data");
-	unsigned int datachunksize = (audio->count * sizeof(Sample));
+	unsigned int datachunksize = (audio->count * sizeof(EncodedSample));
 	fwrite(&datachunksize, sizeof(datachunksize), 1, file);
-	fwrite(audio->samples, sizeof(Sample), audio->count, file);
+	fwrite(samples, sizeof(EncodedSample), audio->count, file);
+	
+	//Free encoded samples
+	free(samples);
 	
 	//Close the file
 	fclose(file);
