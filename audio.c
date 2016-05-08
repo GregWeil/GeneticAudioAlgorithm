@@ -5,12 +5,12 @@
 #include <limits.h>
 #include <stdio.h>
 
-//Samples per second
-const unsigned int SAMPLE_RATE = 48000;
-//When mixing a track, compress audio to this volume
-const double VOLUME_MAX = 0.25;
 //The value of PI, since I need it sometimes
 const double PI = 3.14159265358979323846;
+//Samples per second
+unsigned int SAMPLE_RATE = 48000;
+//When mixing a track, compress audio to this volume
+double VOLUME_MAX = 0.25;
 
 //A single audio sample
 typedef short Sample;
