@@ -72,7 +72,7 @@ void* evaluate(void* input) {
 		
 		//audio.samples[audio.count]
 		//audio_duration(&audio) -> seconds
-		chromo.fitness = audio_duration(&audio) + chromo.length;
+		chromo.fitness = track.count;
 		
 		audio_free(&audio);
 		track_free(&track);
