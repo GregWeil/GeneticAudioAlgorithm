@@ -1,6 +1,6 @@
 /// audio.c
 //A library for audio creation, sort of like midi music but not quite
-
+#include <stdlib.h>
 #include <math.h>
 #include <limits.h>
 #include <stdio.h>
