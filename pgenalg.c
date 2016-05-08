@@ -162,14 +162,22 @@ int main(int argc, char *argv[]){
 	MPI_Comm_size(MPI_COMM_WORLD, &mpi_commsize);
 	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_myrank);
 
+	if(argc != 4){
+		if(mpi_myrank == 0){
+			printf("Incorrect number of args\n\t[1] population_size\n\t[2] max_generations\n\t[3]threads_per_rank\n");
+		}
+		MPI_Finalize();
+		return 0;
+	}
+	population_size = atoi(argv[1]);
+	max_generations = atoi(argv[2]); 
+	threads_per_rank = atoi(argv[3]);
+
 	//set RNG seed	
 	srand48_r (1202107158 + mpi_myrank * 1999, &drand_buf);
 	
 	//MPI_Request request;
 	MPI_Status status;
-	population_size = atoi(argv[1]);
-	max_generations = atoi(argv[2]); 
-	threads_per_rank = atoi(argv[3]);
 	
 	pthread_t* threads = malloc(threads_per_rank * sizeof(pthread_t));
 	int* threadData = malloc(threads_per_rank * sizeof(int));
