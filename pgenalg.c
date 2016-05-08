@@ -242,6 +242,10 @@ int main(int argc, char *argv[]){
 	
 	MPI_Barrier(MPI_COMM_WORLD);	
 	
+	if (mpi_myrank == 0) {
+		printf("Running\n");
+	}	
+	
 	//run for max_generations
 	for(generation=1; generation <= max_generations; generation++){
 
