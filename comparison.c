@@ -10,9 +10,10 @@ int audioChannel = 0; //change to get different channels in multichannel audio. 
 
 void PrintAudioMetadata(SF_INFO * file)
 {
+    //this is only for printing information for debugging purposes
     printf("Frames:\t%ld\n", file->frames); 
     printf("Sample rate:\t%d\n", file->samplerate);
-    printf("Channels: \t%d\n", file->channels); //code will have problems id channels is not 0! 
+    printf("Channels: \t%d\n", file->channels); //comparison wont be accurate if channels is not 0! 
     printf("Format: \t%d\n", file->format);
     printf("Sections: \t%d\n", file->sections);
     printf("Seekable: \t%d\n", file->seekable);
