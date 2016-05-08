@@ -107,12 +107,13 @@ unsigned int note_samples(const Note* note) {
 //Build an audio stream from a note
 Audio note_audio(const Note* note) {
 	Audio audio = audio_initialize(note_samples(note));
-	double (*wavesample)(double, double);
+	double (*wavesample)(double, double) = &wave_sample_sin;
 	if (note->waveform == SIN) wavesample = &wave_sample_sin;
 	else if (note->waveform == SQUARE) wavesample = &wave_sample_square;
 	else if (note->waveform == TRIANGLE) wavesample = &wave_sample_triangle;
 	else if (note->waveform == SAWTOOTH) wavesample = &wave_sample_sawtooth;
-	for (unsigned int i = 0; i < audio.count; ++i) {
+	unsigned int i;
+	for (i = 0; i < audio.count; ++i) {
 		double wave = (*wavesample)((i * 1.0 / SAMPLE_RATE), note->frequency);
 		audio.samples[i] = (wave * note->volume * SHRT_MAX);
 	}
@@ -125,7 +126,8 @@ Track track_initialize(unsigned int length) {
 	Track track;
 	track.count = length;
 	track.notes = (Note*)malloc(track.count * sizeof(Note));
-	for (unsigned int i = 0; i < track.count; ++i) {
+	unsigned int i;
+	for (i = 0; i < track.count; ++i) {
 		track.notes[i] = note_initialize();
 	}
 	return track;
@@ -133,7 +135,8 @@ Track track_initialize(unsigned int length) {
 
 //Free data used by a track
 void track_free(const Track* track) {
-	for (unsigned int i = 0; i < track->count; ++i) {
+	unsigned int i;
+	for (i = 0; i < track->count; ++i) {
 		note_free(&track->notes[i]);
 	}
 	free(track->notes);
@@ -142,7 +145,8 @@ void track_free(const Track* track) {
 //Get the length of a track
 double track_duration(const Track* track) {
 	double duration = 0;
-	for (unsigned int i = 0; i < track->count; ++i) {
+	unsigned int i;
+	for (i = 0; i < track->count; ++i) {
 		double time = (track->notes[i].time + track->notes[i].duration);
 		if (time > duration) duration = time;
 	}
@@ -158,18 +162,19 @@ unsigned int track_samples(const Track* track) {
 Audio track_audio(const Track* track) {
 	Audio audio = audio_initialize(track_samples(track));
 	int* samples = (int*)malloc(audio.count * sizeof(int));
+	unsigned int i, j;
 	
 	//Initialize the high range samples
-	for (unsigned int i = 0; i < audio.count; ++i) {
+	for (i = 0; i < audio.count; ++i) {
 		samples[i] = 0;
 	}
 	
 	//Add together all of the notes
-	for (unsigned int i = 0; i < track->count; ++i) {
+	for (i = 0; i < track->count; ++i) {
 		Note* note = &track->notes[i];
 		Audio noteaudio = note_audio(note);
 		unsigned int notetime = (note->time * SAMPLE_RATE);
-		for (unsigned int j = 0; j < noteaudio.count; ++j) {
+		for (j = 0; j < noteaudio.count; ++j) {
 			samples[notetime + j] += noteaudio.samples[j];
 		}
 		audio_free(&noteaudio);
@@ -177,13 +182,13 @@ Audio track_audio(const Track* track) {
 	
 	//Find the maximum loudness in the track
 	int loudest = SHRT_MAX;
-	for (unsigned int i = 0; i < audio.count; ++i) {
+	for (i = 0; i < audio.count; ++i) {
 		if (samples[i] > loudest) loudest = samples[i];
 		if (-samples[i] > loudest) loudest = -samples[i];
 	}
 	
 	//Compress the high range samples
-	for (unsigned int i = 0; i < audio.count; ++i) {
+	for (i = 0; i < audio.count; ++i) {
 		audio.samples[i] = samples[i] * (SHRT_MAX * VOLUME_MAX / loudest);
 	}
 	
@@ -208,7 +213,8 @@ Track track_initialize_from_binary(const char* data, const unsigned int size,
 		+ frequencysize + volumesize + durationsize);
 	
 	Track track = track_initialize(size / notesize);
-	for (unsigned int i = 0; i < track.count; ++i) {
+	unsigned int i;
+	for (i = 0; i < track.count; ++i) {
 		unsigned int index = (i * notesize);
 		Note* note = &track.notes[i];
 		note->time = (*(unsigned int*)&data[index] * timemax / UINT_MAX);

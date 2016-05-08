@@ -84,7 +84,8 @@ int test_binary(int argc, char** argv) {
 	srand(atoi(argv[6]));
 	unsigned int length = atoi(argv[2]);
 	char* array = malloc(length * sizeof(char));
-	for (unsigned int i = 0; i < length; ++i) {
+	unsigned int i;
+	for (i = 0; i < length; ++i) {
 		array[i] = ((rand() % UCHAR_MAX) + CHAR_MIN);
 	}
 	
