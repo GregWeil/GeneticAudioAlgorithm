@@ -51,11 +51,11 @@ void* evaluate(void* input) {
 	int i;
 	
 	for(i=threadID*chunk_size; i < threadID*chunk_size + chunk_size; i++){
-		//begin test evaluation
+		/*//begin test evaluation
 		chromosome chromo = population[i];
 		chromo.fitness = chromo.length;
 		population[i] = chromo;
-		//end test evaluation
+		//end test evaluation*/
 		
 		///printf("thread: %d index: %d fitness: %.5f size: %d\n",threadID,i,chromo.fitness,chromo.length);
 		
@@ -182,9 +182,9 @@ int main(int argc, char *argv[]){
 	MPI_Comm_size(MPI_COMM_WORLD, &mpi_commsize);
 	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_myrank);
 
-	if(argc != 4){
+	if(argc != 6){
 		if(mpi_myrank == 0){
-			printf("Incorrect number of args\n\t[1] population_size\n\t[2] max_generations\n\t[3]threads_per_rank\n");
+			printf("Incorrect number of args\n\t[1] population_size\n\t[2] max_generations\n\t[3]threads_per_rank\n\t[4]input_file\n\t[5]output_directory\n");
 		}
 		MPI_Finalize();
 		return 0;
@@ -192,6 +192,8 @@ int main(int argc, char *argv[]){
 	population_size = atoi(argv[1]);
 	max_generations = atoi(argv[2]); 
 	threads_per_rank = atoi(argv[3]);
+	input_file = argv[4];
+	output_directory = argv[5];
 
 	//set RNG seed	
 	srand48_r (1202107158 + mpi_myrank * 1999, &drand_buf);
@@ -271,7 +273,7 @@ int main(int argc, char *argv[]){
 					song_max_duration, note_max_duration, frequency_max);
 				Audio audio = track_audio(&track);
 				char fname[128];
-				sprintf(fname, "audio%d.wav", generation);
+				sprintf(fname, "%s/audio_result_%d.wav", output_directory, generation);
 				audio_save(&audio, fname);
 				printf("\tDuration: %.2fs\n\tNotes: %d\n",
 					audio_duration(&audio), track.count);
