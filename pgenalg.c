@@ -12,6 +12,7 @@
 #include<string.h>
 #include<mpi.h>
 #include<pthread.h>
+#include "audio.c"
 
 chromosome* population; 
 chromosome* new_population; //for switchover
@@ -55,6 +56,23 @@ void* evaluate(void* input) {
 		///printf("thread: %d index: %d fitness: %.5f size: %d\n",threadID,i,chromo.fitness,chromo.length);
 		
 		/* DO ACTUAL EVALUATION HERE */
+		
+		double song_max_duration = 60;
+		double note_max_duration = 5;
+		double frequency_max = 25000;
+		Track track = track_initialize_from_binary(chromo.genes, chromo.length,
+			song_max_duration, note_max_duration, frequency_max);
+		Audio audio = track_audio(&track);
+		//audio_save(&audio, path);
+		
+		//audio.samples[audio.count]
+		//audio_duration(&audio) -> seconds
+		chromo.fitness = audio_duration(&audio);
+		
+		audio_free(&audio);
+		track_free(&track);
+		
+		population[i] = chromo;
 	}
 
 	return 0;
