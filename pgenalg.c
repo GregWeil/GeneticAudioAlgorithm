@@ -270,7 +270,9 @@ int main(int argc, char *argv[]){
 				Track track = track_initialize_from_binary(chromo->genes, chromo->length,
 					song_max_duration, note_max_duration, frequency_max);
 				Audio audio = track_audio(&track);
-				audio_save(&audio, "audio.wav");
+				char fname[128];
+				sprintf(fname, "audio%d.wav", generation);
+				audio_save(&audio, fname);
 				printf("\tDuration: %.2fs\n\tNotes: %d\n",
 					audio_duration(&audio), track.count);
 				audio_free(&audio);
