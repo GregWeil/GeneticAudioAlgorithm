@@ -24,6 +24,10 @@ int threads_per_rank;//number of threads per rank
 double mutation_rate = 0.05;//mutation rate
 double crossover_rate = 0.97;//crossover rate
 
+double song_max_duration = 60;
+double note_max_duration = 5;
+double frequency_max = 25000;
+
 //thread-safe rng stuff
 struct drand48_data drand_buf;
 double dv;
@@ -57,9 +61,6 @@ void* evaluate(void* input) {
 		
 		/* DO ACTUAL EVALUATION HERE */
 		
-		double song_max_duration = 60;
-		double note_max_duration = 5;
-		double frequency_max = 25000;
 		Track track = track_initialize_from_binary(chromo.genes, chromo.length,
 			song_max_duration, note_max_duration, frequency_max);
 		Audio audio = track_audio(&track);
@@ -67,7 +68,7 @@ void* evaluate(void* input) {
 		
 		//audio.samples[audio.count]
 		//audio_duration(&audio) -> seconds
-		chromo.fitness = audio_duration(&audio);
+		chromo.fitness = audio_duration(&audio) + chromo.length;
 		
 		audio_free(&audio);
 		track_free(&track);
@@ -255,14 +256,26 @@ int main(int argc, char *argv[]){
 		//print some metrics every 10 generations
 		if(mpi_myrank == 0 && generation%10==0){
 			float max_fitness = 0;
+			chromosome* chromo = NULL;
 			for(i=0; i<population_size; i++){
 				chromosome tmp = population[i];
 				///printf("index: %d fitness %.5f size: %d\n",i,tmp.fitness,tmp.length);
 				if(tmp.fitness > max_fitness){
 					max_fitness = tmp.fitness;
+					chromo = &population[i];
 				}
 			}
 			printf("Generation %d:\n\tMax fitness: %.5f\n",generation,max_fitness);
+			if (chromo != NULL) {
+				Track track = track_initialize_from_binary(chromo->genes, chromo->length,
+					song_max_duration, note_max_duration, frequency_max);
+				Audio audio = track_audio(&track);
+				audio_save(&audio, "audio.wav");
+				printf("\tDuration: %.2fs\n\tNotes: %d\n",
+					audio_duration(&audio), track.count);
+				audio_free(&audio);
+				track_free(&track);
+			}
 		}
 		
 		/*
