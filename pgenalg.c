@@ -134,7 +134,7 @@ void mutate(chromosome* chromo){
 				case 0://insertion
 					if(chromo->length < MAX_GENES){//only insert if room left in memory
 						memmove(chromo->genes + i + 1,chromo->genes + i, chromo->length-i);
-						chromo->genes[i] = (char)randr(65,90);//RAND_CHAR;
+						chromo->genes[i] = (char)randr(0,255);//RAND_CHAR;
 						chromo->length += 1;
 					}
 					break;
@@ -145,7 +145,7 @@ void mutate(chromosome* chromo){
 					break;
 					
 				case 2://substitution
-					chromo->genes[i] = (char)randr(65,90);//RAND_CHAR;
+					chromo->genes[i] = (char)randr(0,255);//RAND_CHAR;
 					break;
 				
 				default:
@@ -224,7 +224,7 @@ int main(int argc, char *argv[]){
 		int length = randr(5,20);//start chromosomes between 5 and 50 genes
 		tmp.length = length;
 		for(j=0;j<length;j++){//assign random char values (0-255)
-			tmp.genes[j] = (char)randr(65,90);//RAND_CHAR;
+			tmp.genes[j] = (char)randr(0,255);//RAND_CHAR;
 		}
 		population[i] = tmp;
 		///printf("Rank: %d chromo: <%.*s> %d \n",mpi_myrank,tmp.length,tmp.genes,tmp.length);
