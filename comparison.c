@@ -116,12 +116,13 @@ int PassAudioData(double* samples, int numSamples, double*** dft_data)
     	return 0;
     }
 
+/*
 	printf("Input:\n");
 	for( i = 0; i < numSamples; i++){
-		printf("%ld\t", samples[i]);
+		printf("%f\t", samples[i]);
 	}
 	printf("\n\n");
-
+*/
 
     double* fftw_in = fftw_malloc( sizeof(double) * blockSize);
     if ( !fftw_in ) {
@@ -164,7 +165,7 @@ int PassAudioData(double* samples, int numSamples, double*** dft_data)
 					printf("this should not print\n");
 				}
 				else{
-					printf("this should print once\n");
+					//printf("this should print once\n");
 				}
 				fftw_in[j] = 0.0;
 			}
@@ -179,11 +180,13 @@ int PassAudioData(double* samples, int numSamples, double*** dft_data)
 		}
 	}
 
+/*
 	printf("Output:\n");
 	for( i = 0; i < numBlocks*(blockSize/2); i++){
-		printf("%ld\t%ld\n", (*dft_data)[i][0], (*dft_data)[i][1]);
+		printf("%f\t%f\n", (*dft_data)[i][0], (*dft_data)[i][1]);
 	}
 	printf("\n\n");
+*/
 
 	fftw_destroy_plan( plan );
 	fftw_free( fftw_in );
