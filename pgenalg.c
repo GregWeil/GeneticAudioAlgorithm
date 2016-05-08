@@ -13,6 +13,7 @@
 #include<mpi.h>
 #include<pthread.h>
 #include "audio.c"
+#include "comparison.h"
 
 chromosome* population; 
 chromosome* new_population; //for switchover
@@ -24,9 +25,16 @@ int threads_per_rank;//number of threads per rank
 double mutation_rate = 0.05;//mutation rate
 double crossover_rate = 0.97;//crossover rate
 
+double song_max_duration = 60;
+double note_max_duration = 5;
+double frequency_max = 25000;
+
 //thread-safe rng stuff
 struct drand48_data drand_buf;
 double dv;
+
+//DFT data for input file
+double** file_dft_data;
 
 double randv(){
 	//return random value, assumes seed has been called
@@ -47,19 +55,16 @@ void* evaluate(void* input) {
 	int i;
 	
 	for(i=threadID*chunk_size; i < threadID*chunk_size + chunk_size; i++){
-		//begin test evaluation
 		chromosome chromo = population[i];
+		/*//begin test evaluation
 		chromo.fitness = chromo.length;
 		population[i] = chromo;
-		//end test evaluation
+		//end test evaluation*/
 		
 		///printf("thread: %d index: %d fitness: %.5f size: %d\n",threadID,i,chromo.fitness,chromo.length);
 		
 		/* DO ACTUAL EVALUATION HERE */
 		
-		double song_max_duration = 60;
-		double note_max_duration = 5;
-		double frequency_max = 25000;
 		Track track = track_initialize_from_binary(chromo.genes, chromo.length,
 			song_max_duration, note_max_duration, frequency_max);
 		Audio audio = track_audio(&track);
@@ -67,7 +72,7 @@ void* evaluate(void* input) {
 		
 		//audio.samples[audio.count]
 		//audio_duration(&audio) -> seconds
-		chromo.fitness = audio_duration(&audio);
+		chromo.fitness = audio_duration(&audio) + chromo.length;
 		
 		audio_free(&audio);
 		track_free(&track);
@@ -134,7 +139,7 @@ void mutate(chromosome* chromo){
 				case 0://insertion
 					if(chromo->length < MAX_GENES){//only insert if room left in memory
 						memmove(chromo->genes + i + 1,chromo->genes + i, chromo->length-i);
-						chromo->genes[i] = (char)randr(65,90);//RAND_CHAR;
+						chromo->genes[i] = (char)randr(0,255);//RAND_CHAR;
 						chromo->length += 1;
 					}
 					break;
@@ -145,7 +150,7 @@ void mutate(chromosome* chromo){
 					break;
 					
 				case 2://substitution
-					chromo->genes[i] = (char)randr(65,90);//RAND_CHAR;
+					chromo->genes[i] = (char)randr(0,255);//RAND_CHAR;
 					break;
 				
 				default:
@@ -181,9 +186,9 @@ int main(int argc, char *argv[]){
 	MPI_Comm_size(MPI_COMM_WORLD, &mpi_commsize);
 	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_myrank);
 
-	if(argc != 4){
+	if(argc != 6){
 		if(mpi_myrank == 0){
-			printf("Incorrect number of args\n\t[1] population_size\n\t[2] max_generations\n\t[3]threads_per_rank\n");
+			printf("Incorrect number of args\n\t[1] population_size\n\t[2] max_generations\n\t[3]threads_per_rank\n\t[4]input_file\n\t[5]output_directory\n");
 		}
 		MPI_Finalize();
 		return 0;
@@ -191,6 +196,11 @@ int main(int argc, char *argv[]){
 	population_size = atoi(argv[1]);
 	max_generations = atoi(argv[2]); 
 	threads_per_rank = atoi(argv[3]);
+	char* input_file = argv[4];
+	char* output_directory = argv[5];
+	
+	//read input file
+	ReadAudioFile(input_file, &file_dft_data);
 
 	//set RNG seed	
 	srand48_r (1202107158 + mpi_myrank * 1999, &drand_buf);
@@ -224,13 +234,17 @@ int main(int argc, char *argv[]){
 		int length = randr(5,20);//start chromosomes between 5 and 50 genes
 		tmp.length = length;
 		for(j=0;j<length;j++){//assign random char values (0-255)
-			tmp.genes[j] = (char)randr(65,90);//RAND_CHAR;
+			tmp.genes[j] = (char)randr(0,255);//RAND_CHAR;
 		}
 		population[i] = tmp;
 		///printf("Rank: %d chromo: <%.*s> %d \n",mpi_myrank,tmp.length,tmp.genes,tmp.length);
 	}
 	
 	MPI_Barrier(MPI_COMM_WORLD);	
+	
+	if (mpi_myrank == 0) {
+		printf("Running\n");
+	}	
 	
 	//run for max_generations
 	for(generation=1; generation <= max_generations; generation++){
@@ -255,14 +269,28 @@ int main(int argc, char *argv[]){
 		//print some metrics every 10 generations
 		if(mpi_myrank == 0 && generation%10==0){
 			float max_fitness = 0;
+			chromosome* chromo = NULL;
 			for(i=0; i<population_size; i++){
 				chromosome tmp = population[i];
 				///printf("index: %d fitness %.5f size: %d\n",i,tmp.fitness,tmp.length);
 				if(tmp.fitness > max_fitness){
 					max_fitness = tmp.fitness;
+					chromo = &population[i];
 				}
 			}
 			printf("Generation %d:\n\tMax fitness: %.5f\n",generation,max_fitness);
+			if (chromo != NULL) {
+				Track track = track_initialize_from_binary(chromo->genes, chromo->length,
+					song_max_duration, note_max_duration, frequency_max);
+				Audio audio = track_audio(&track);
+				char fname[128];
+				sprintf(fname, "%s/audio_result_%d.wav", output_directory, generation);
+				audio_save(&audio, fname);
+				printf("\tDuration: %.2fs\n\tNotes: %d\n",
+					audio_duration(&audio), track.count);
+				audio_free(&audio);
+				track_free(&track);
+			}
 		}
 		
 		/*

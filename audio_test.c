@@ -92,8 +92,8 @@ int test_binary(int argc, char** argv) {
 	Track track = track_initialize_from_binary(array, length,
 		atof(argv[3]), atof(argv[4]), atof(argv[5]));
 	printf("%d notes (%d bytes each)\n", track.count, length/track.count);
-	printf("%f seconds\n", track_duration(&track));
 	Audio audio = track_audio(&track);
+	printf("%f seconds\n", audio_duration(&audio));
 	audio_save(&audio, file);
 	audio_free(&audio);
 	track_free(&track);
