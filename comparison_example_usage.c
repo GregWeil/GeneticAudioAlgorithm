@@ -15,10 +15,12 @@ int main(int argc, char ** argv)
 
 	//Code to read in the original audio file that the gen alg is trying to replicate. should only be read in once, and FFT data passed to where it is needed
     double** Goal = NULL;
-    int size = ReadAudioFile(goalFile, &Goal);
+    uint samplerate = 0;
+    int size = ReadAudioFile(goalFile, &Goal, &samplerate);
 	if( !size ) {
 		printf("error: ReadAudioFile failed for %s\n", goalFile);
 	}
+	printf("samplerate is %d", samplerate);
 
 	//Code to test fitness of individual by comparing individuals FFT to the Original FFT.
 	printf("Fitnesses (lower is better):\n");

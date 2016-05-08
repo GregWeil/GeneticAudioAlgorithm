@@ -18,7 +18,7 @@ void PrintAudioMetadata(SF_INFO * file)
     printf("Seekable: \t%d\n", file->seekable);
 }
 
-int ReadAudioFile(char* filename, double*** dft_data)
+int ReadAudioFile(char* filename, double*** dft_data, uint* samplerate)
 {
 	//reads in .wav, returns FFT by reference through dft_data, returns size of dft_data
 	sf_count_t i;
@@ -36,6 +36,8 @@ int ReadAudioFile(char* filename, double*** dft_data)
     	sf_close( f );
     	return 0;
     }
+
+    (*samplerate) = info.samplerate;
 
     double* fftw_in = fftw_malloc( sizeof(double) * blockSize * info.channels );
     if ( !fftw_in ) {
@@ -111,7 +113,7 @@ int PassAudioData(Samples* samples, int numSamples, double*** dft_data)
     	return 0;
     }
 
-    double* fftw_in = fftw_malloc( sizeof(double) * blockSize * info.channels );
+    double* fftw_in = fftw_malloc( sizeof(double) * blockSize);
     if ( !fftw_in ) {
 		printf("error: fftw_malloc 1 failed\n");
 		sf_close( f );
@@ -136,7 +138,7 @@ int PassAudioData(Samples* samples, int numSamples, double*** dft_data)
 	}
 
 	//allocate space for array to return
-	int numBlocks = (int)(ceil(info.frames / (double)blockSize));
+	int numBlocks = (int)(ceil(numSamples / (double)blockSize));
     (*dft_data) = malloc( sizeof(double*) * numBlocks * blockSize/2 );
 	for(i = 0; i < (numBlocks * blockSize / 2.0); i++){
 		(*dft_data)[i] = malloc(sizeof(double) * 2);
