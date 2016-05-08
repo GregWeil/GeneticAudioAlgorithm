@@ -12,6 +12,7 @@
 #include<string.h>
 #include<mpi.h>
 #include<pthread.h>
+#include<float.h>
 #include "audio.c"
 #include "comparison.h"
 
@@ -35,6 +36,7 @@ double dv;
 
 //DFT data for input file
 double** file_dft_data;
+int file_dft_length;
 
 double randv(){
 	//return random value, assumes seed has been called
@@ -72,7 +74,15 @@ void* evaluate(void* input) {
 		
 		//audio.samples[audio.count]
 		//audio_duration(&audio) -> seconds
-		chromo.fitness = audio_duration(&audio) + chromo.length;
+		chromo.fitness = 0;
+		if (audio_duration(&audio) > 0) {
+			chromo.fitness = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length);
+			if (chromo.fitness > 0) {
+				chromo.fitness = (1.0 / chromo.fitness);
+			} else {
+				chromo.fitness = DBL_MAX;
+			}
+		}
 		
 		audio_free(&audio);
 		track_free(&track);
@@ -200,7 +210,11 @@ int main(int argc, char *argv[]){
 	char* output_directory = argv[5];
 	
 	//read input file
-	ReadAudioFile(input_file, &file_dft_data);
+	unsigned int sample_rate = 0;
+	unsigned int sample_count = 0;
+	file_dft_length = ReadAudioFile(input_file, &file_dft_data, &sample_rate, &sample_count);
+	song_max_duration = (sample_count * 1.0 / sample_rate);
+	SAMPLE_RATE = sample_rate;
 
 	//set RNG seed	
 	srand48_r (1202107158 + mpi_myrank * 1999, &drand_buf);
