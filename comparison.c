@@ -116,6 +116,13 @@ int PassAudioData(double* samples, int numSamples, double*** dft_data)
     	return 0;
     }
 
+	printf("Input:\n");
+	for( i = 0; i < numSamples; i++){
+		printf("%ld\t", samples[i]);
+	}
+	printf("\n\n");
+
+
     double* fftw_in = fftw_malloc( sizeof(double) * blockSize);
     if ( !fftw_in ) {
 		printf("error: fftw_malloc 1 failed\n");
@@ -172,6 +179,12 @@ int PassAudioData(double* samples, int numSamples, double*** dft_data)
 		}
 	}
 
+	printf("Output:\n");
+	for( i = 0; i < numBlocks*(blockSize/2); i++){
+		printf("%ld\t%ld\n", (*dft_data)[i][0], (*dft_data)[i][1]);
+	}
+	printf("\n\n");
+
 	fftw_destroy_plan( plan );
 	fftw_free( fftw_in );
 	fftw_free( fftw_out);
@@ -198,14 +211,14 @@ double AudioComparison(double* samples, int numSamples, double** goal, int goals
 		return DBL_MAX;
 	}
 	if(!goal || goalsize == 0){
-		printf("error: goal file data not passed in correctly!");
+		printf("error: goal file data not passed in correctly!\n");
 		return DBL_MAX;
 	}
 
 	double** test = NULL;
 	int testsize = PassAudioData(samples, numSamples, &test);
 	if( !testsize ){
-		printf("PassAudioData failed!");
+		printf("PassAudioData failed!\n");
 		return DBL_MAX;
 	}
 
