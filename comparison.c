@@ -18,7 +18,7 @@ void PrintAudioMetadata(SF_INFO * file)
     printf("Seekable: \t%d\n", file->seekable);
 }
 
-int ReadAudioFile(char* filename, double*** dft_data, uint* samplerate)
+int ReadAudioFile(char* filename, double*** dft_data, unsigned int* samplerate, unsigned int* frames)
 {
 	//reads in .wav, returns FFT by reference through dft_data, returns size of dft_data
 	sf_count_t i;
@@ -30,14 +30,17 @@ int ReadAudioFile(char* filename, double*** dft_data, uint* samplerate)
     	printf("error: could not open %s for processing\n", filename );
     	return 0;
     }
-    //PrintAudioMetadata(&info);
+
+    PrintAudioMetadata(&info);
+    
     if(info.channels != 1){
     	printf("error: .wav file must be Mono. Code can't handle multi-channel audio.\n");
     	sf_close( f );
     	return 0;
     }
 
-    (*samplerate) = info.samplerate;
+    (*samplerate) = (unsigned int)info.samplerate;
+    (*frames) = (unsigned int)(int)info.frames;
 
     double* fftw_in = fftw_malloc( sizeof(double) * blockSize * info.channels );
     if ( !fftw_in ) {
@@ -80,7 +83,7 @@ int ReadAudioFile(char* filename, double*** dft_data, uint* samplerate)
 			//reached last block, which has less than blockSize frames
 			//Pad with 0 so fft is same size as other blocks
 			for( j = numRead; j < blockSize; j++ ) {
-				fftw_in[i] = 0.0;
+				fftw_in[j] = 0.0;
 			}
 		}
 
@@ -101,10 +104,9 @@ int ReadAudioFile(char* filename, double*** dft_data, uint* samplerate)
     return numBlocks * blockSize/2;
 }
 
-int PassAudioData(Samples* samples, int numSamples, double*** dft_data)
+int PassAudioData(double* samples, int numSamples, double*** dft_data)
 {
-
-	//samples is an array of shorts of size numSamples
+	//samples is an array of doubles of size numSamples
 	sf_count_t i;
 	sf_count_t j;
 	
@@ -116,7 +118,6 @@ int PassAudioData(Samples* samples, int numSamples, double*** dft_data)
     double* fftw_in = fftw_malloc( sizeof(double) * blockSize);
     if ( !fftw_in ) {
 		printf("error: fftw_malloc 1 failed\n");
-		sf_close( f );
 		return 0;
 	}
 
@@ -124,7 +125,6 @@ int PassAudioData(Samples* samples, int numSamples, double*** dft_data)
     if ( !fftw_out ) {
 		printf("error: fftw_malloc 2 failed\n");
 		fftw_free( fftw_in );
-		sf_close( f );
 		return 0;
     }
 
@@ -133,7 +133,6 @@ int PassAudioData(Samples* samples, int numSamples, double*** dft_data)
 		printf("error: Could not create plan\n");
 		fftw_free( fftw_in );
 		fftw_free( fftw_out );
-		sf_close( f );
 		return 0;
 	}
 
@@ -145,16 +144,21 @@ int PassAudioData(Samples* samples, int numSamples, double*** dft_data)
 	}
     //printf("transform splits file into %d slices\n", numBlocks);
 
-	sf_count_t numRead;
 	for(i = 0; i < numBlocks; i++){
 
-		numRead = sf_readf_double( f, fftw_in, blockSize );
-
-		if ( numRead < blockSize ) {
-			//reached last block, which has less than blockSize frames
-			//Pad with 0 so fft is same size as other blocks
-			for( j = numRead; j < blockSize; j++ ) {
-				fftw_in[i] = 0.0;
+		//this loop substitutes for sf_readf_double in ReadAudioData.
+		for( j = 0; j < blockSize; j++){
+			if( (i*blockSize)+j < numSamples ){
+				fftw_in[j] = samples[(i*blockSize)+j];
+			}
+			else{
+				if(i != (numBlocks-1)){
+					printf("this should not print\n");
+				}
+				else{
+					printf("this should print once\n");
+				}
+				fftw_in[j] = 0.0;
 			}
 		}
 
@@ -170,7 +174,6 @@ int PassAudioData(Samples* samples, int numSamples, double*** dft_data)
 	fftw_destroy_plan( plan );
 	fftw_free( fftw_in );
 	fftw_free( fftw_out);
-	sf_close( f );
 
     return numBlocks * blockSize/2;
 }
@@ -185,13 +188,13 @@ double GetFitnessHelper(double** goal, double** test, int size){
 	return fitness;
 }
 
-double AudioComparison(Samples* samples, int numSamples, double** goal, int goalsize){
+double AudioComparison(double* samples, int numSamples, double** goal, int goalsize){
 	//testfile is the name of the .wav file to get the fitness of
 	//goal is the FFT of the original audio file we are trying to emulate
 	//size is the size of the first dimension of goal. the second dimension is always size 2.
 
 	double** test = NULL;
-	int testsize = ReadAudioFile(samples, numSamples, &test);
+	int testsize = PassAudioData(samples, numSamples, &test);
 	//printf("size: %d\n", testsize);
 
 	double fitness;
