@@ -1,2 +1,2 @@
 all: pgenalg.c
-	mpicc -I. -Wall -O3 pgenalg.c -o pgenalg
+	mpicc -I. -Wall -O3 pgenalg.c -lm -o pgenalg
