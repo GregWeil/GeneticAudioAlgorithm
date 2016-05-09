@@ -15,6 +15,7 @@
 #include<float.h>
 #include "audio.c"
 #include "comparison.h"
+#include <fftw3.h>
 
 chromosome* population; 
 chromosome* new_population; //for switchover
