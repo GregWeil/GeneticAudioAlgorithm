@@ -32,7 +32,7 @@ int ReadAudioFile(char* filename, double*** dft_data, unsigned int* samplerate, 
     	return 0;
     }
 
-    PrintAudioMetadata(&info);
+    //PrintAudioMetadata(&info);
     
     if(info.channels != 1){
     	printf("error: .wav file must be Mono. Code can't handle multi-channel audio.\n");

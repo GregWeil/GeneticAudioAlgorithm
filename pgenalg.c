@@ -236,6 +236,11 @@ int main(int argc, char *argv[]){
 	unsigned int sample_rate = 0;
 	unsigned int sample_count = 0;
 	file_dft_length = ReadAudioFile(input_file, &file_dft_data, &sample_rate, &sample_count);
+	if(file_dft_length == 0){
+		//error while reading in file
+		MPI_Finalize();
+		return 0;
+	}
 	song_max_duration = (sample_count * 1.0 / sample_rate);
 	song_max_samples = sample_count;
 	SAMPLE_RATE = sample_rate;
@@ -351,7 +356,7 @@ int main(int argc, char *argv[]){
 		}
 		
 		//print some metrics every 10 generations
-		if(mpi_myrank == 0 && generation%10==0){
+		if(mpi_myrank == 0 && (generation%10==0 || generation == max_generations)){
 			double max_fitness = 0;
 			chromosome* chromo = NULL;
 			for(i=0; i<population_size; i++){
