@@ -246,7 +246,7 @@ int main(int argc, char *argv[]){
 	for(i=0; i<population_size;i++){
 		chromosome tmp;
 		tmp.fitness = 0;
-		int length = randr(5,20);//start chromosomes between 5 and 50 genes
+		int length = randr(12,120);//start chromosomes between with random size
 		tmp.length = length;
 		for(j=0;j<length;j++){//assign random char values (0-255)
 			tmp.genes[j] = (char)randr(0,255);//RAND_CHAR;
@@ -301,7 +301,7 @@ int main(int argc, char *argv[]){
 				char fname[128];
 				sprintf(fname, "%s/audio_result_%d.wav", output_directory, generation);
 				audio_save(&audio, fname);
-				printf("\n\tNotes: %d\n", track.count);
+				printf("\tNotes: %d\n", track.count);
 				audio_free(&audio);
 				track_free(&track);
 			}
