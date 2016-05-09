@@ -26,6 +26,7 @@ int threads_per_rank;//number of threads per rank
 double mutation_rate = 0.05;//mutation rate
 double crossover_rate = 0.97;//crossover rate
 
+unsigned int song_max_samples = 48000;
 double song_max_duration = 60;
 double note_max_duration = 5;
 double frequency_max = 25000;
@@ -66,10 +67,9 @@ void* evaluate(void* input) {
 		///printf("thread: %d index: %d fitness: %.5f size: %d\n",threadID,i,chromo.fitness,chromo.length);
 		
 		/* DO ACTUAL EVALUATION HERE */
-		
 		Track track = track_initialize_from_binary(chromo.genes, chromo.length,
 			song_max_duration, note_max_duration, frequency_max);
-		Audio audio = track_audio(&track);
+		Audio audio = track_audio_fixed_samples(&track, song_max_samples);
 		//audio_save(&audio, path);
 		
 		//audio.samples[audio.count]
@@ -214,6 +214,7 @@ int main(int argc, char *argv[]){
 	unsigned int sample_count = 0;
 	file_dft_length = ReadAudioFile(input_file, &file_dft_data, &sample_rate, &sample_count);
 	song_max_duration = (sample_count * 1.0 / sample_rate);
+	song_max_samples = ((song_max_duration + note_max_duration) * sample_rate);
 	SAMPLE_RATE = sample_rate;
 
 	//set RNG seed	
@@ -296,12 +297,11 @@ int main(int argc, char *argv[]){
 			if (chromo != NULL) {
 				Track track = track_initialize_from_binary(chromo->genes, chromo->length,
 					song_max_duration, note_max_duration, frequency_max);
-				Audio audio = track_audio(&track);
+				Audio audio = track_audio_fixed_samples(&track, song_max_samples);
 				char fname[128];
 				sprintf(fname, "%s/audio_result_%d.wav", output_directory, generation);
 				audio_save(&audio, fname);
-				printf("\tDuration: %.2fs\n\tNotes: %d\n",
-					audio_duration(&audio), track.count);
+				printf("\n\tNotes: %d\n", track.count);
 				audio_free(&audio);
 				track_free(&track);
 			}

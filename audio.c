@@ -10,7 +10,7 @@ const double PI = 3.14159265358979323846;
 //Samples per second
 unsigned int SAMPLE_RATE = 48000;
 //When mixing a track, compress audio to this volume
-double VOLUME_MAX = 0.25;
+double VOLUME_MAX = 1;
 
 //A single audio sample
 typedef double Sample;
@@ -159,8 +159,8 @@ unsigned int track_samples(const Track* track) {
 }
 
 //Generate the audio stream for a track of notes
-Audio track_audio(const Track* track) {
-	Audio audio = audio_initialize(track_samples(track));
+Audio track_audio_fixed_samples(const Track* track, const unsigned int count) {
+	Audio audio = audio_initialize(count);
 	unsigned int i, j;
 	double loudest = 1;
 	
@@ -170,6 +170,7 @@ Audio track_audio(const Track* track) {
 		Audio noteaudio = note_audio(note);
 		unsigned int notetime = (note->time * SAMPLE_RATE);
 		for (j = 0; j < noteaudio.count; ++j) {
+			if ((notetime + j) >= audio.count) break;
 			audio.samples[notetime + j] += noteaudio.samples[j];
 		}
 		audio_free(&noteaudio);
@@ -186,6 +187,10 @@ Audio track_audio(const Track* track) {
 	}
 	
 	return audio;
+}
+
+Audio track_audio(const Track* track) {
+	return track_audio_fixed_samples(track, track_samples(track));
 }
 
 
