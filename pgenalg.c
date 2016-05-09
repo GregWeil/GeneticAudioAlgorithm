@@ -230,7 +230,7 @@ int main(int argc, char *argv[]){
 	unsigned int sample_count = 0;
 	file_dft_length = ReadAudioFile(input_file, &file_dft_data, &sample_rate, &sample_count);
 	song_max_duration = (sample_count * 1.0 / sample_rate);
-	song_max_samples = ((song_max_duration + note_max_duration) * sample_rate);
+	song_max_samples = sample_count;
 	SAMPLE_RATE = sample_rate;
 
 	int i,j,generation;//loop vars
