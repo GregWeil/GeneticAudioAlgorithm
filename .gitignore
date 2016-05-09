@@ -34,3 +34,7 @@ pgenalg
 
 # Audio files
 *.wav
+
+# Ignore libraries
+fftw*/*
+libsndfile*/*
