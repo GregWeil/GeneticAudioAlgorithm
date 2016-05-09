@@ -17,6 +17,8 @@
 #include "audio.c"
 #include "comparison.h"
 
+#define NOTE_BYTES 12
+
 chromosome* population; 
 chromosome* new_population; //for switchover
 int mpi_myrank;
@@ -158,24 +160,29 @@ void one_point_crossover(chromosome ch1, chromosome ch2, chromosome* out){
 void mutate(chromosome* chromo){
 	//mutate a chromosome in place
 
-	int i;
+	int i,j;
 	for(i=0; i<chromo->length;i++){
 		if(randv() < mutation_rate){//randomly mutate based on mutation rate
-			switch(randr(0,2)){
+			switch(randr(0,5)){
 				case 0://insertion
 					if(chromo->length < MAX_GENES){//only insert if room left in memory
-						memmove(chromo->genes + i + 1,chromo->genes + i, chromo->length-i);
-						chromo->genes[i] = (char)randr(0,255);//RAND_CHAR;
-						chromo->length += 1;
+						memmove(chromo->genes + i + NOTE_BYTES,chromo->genes + i, chromo->length-i);
+						for(j=0;j<NOTE_BYTES;j++){
+							chromo->genes[i+j] = (char)randr(0,255);//RAND_CHAR;
+						}
+						chromo->length += NOTE_BYTES;
 					}
 					break;
 					
 				case 1://deletion
-					memmove(chromo->genes + i,chromo->genes + i + 1,chromo->length-i-1);
-					chromo->length -= 1;
+					memmove(chromo->genes + i,chromo->genes + i + NOTE_BYTES,chromo->length-i-NOTE_BYTES);
+					chromo->length -= NOTE_BYTES;
 					break;
 					
 				case 2://substitution
+				case 3:
+				case 4:
+				case 5:
 					chromo->genes[i] = (char)randr(0,255);//RAND_CHAR;
 					break;
 				
