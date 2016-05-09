@@ -79,7 +79,7 @@ void* evaluate(void* input) {
 		if (audio_duration(&audio) > 0) {
 			chromo.fitness = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length);
 			if (chromo.fitness > 0) {
-				chromo.fitness = (1.0 / chromo.fitness);
+				chromo.fitness = (1000000000.0 / chromo.fitness) + chromo.length;
 			} else {
 				chromo.fitness = DBL_MAX;
 			}
