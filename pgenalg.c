@@ -378,9 +378,9 @@ int main(int argc, char *argv[]){
 					if (note->duration < durMin) durMin = note->duration;
 					if (note->duration > durMax) durMax = note->duration;
 				}
-				printf("\tFrequency: %f - %f\n", freqMin, freqMax);
-				printf("\tVolume: %f - %f\n", volMin, volMax);
-				printf("\tDuration: %f - %f\n", durMin, durMax);
+				printf("\tFrequency: %.0f - %.0f\n", freqMin, freqMax);
+				printf("\tVolume: %.3f - %.3f\n", volMin, volMax);
+				printf("\tDuration: %.3f - %.3f\n", durMin, durMax);
 				audio_free(&audio);
 				track_free(&track);
 			}
