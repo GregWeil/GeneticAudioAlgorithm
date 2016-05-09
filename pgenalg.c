@@ -344,7 +344,7 @@ int main(int argc, char *argv[]){
 		}
 		
 		//print some metrics every 10 generations
-		if(mpi_myrank == 0 && (generation%10==0 || generation == max_generations){
+		if(mpi_myrank == 0 && (generation%10==0 || generation == max_generations)){
 			double max_fitness = 0;
 			chromosome* chromo = NULL;
 			for(i=0; i<population_size; i++){
