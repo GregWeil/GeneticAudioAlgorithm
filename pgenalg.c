@@ -13,9 +13,9 @@
 #include<mpi.h>
 #include<pthread.h>
 #include<float.h>
+#include <fftw3.h>
 #include "audio.c"
 #include "comparison.h"
-#include <fftw3.h>
 
 chromosome* population; 
 chromosome* new_population; //for switchover
@@ -32,6 +32,8 @@ double song_max_duration = 60;
 double note_max_duration = 5;
 double frequency_max = 25000;
 
+int blockSize2 = 256;
+
 //thread-safe rng stuff
 struct drand48_data drand_buf;
 double dv;
@@ -39,6 +41,13 @@ double dv;
 //DFT data for input file
 double** file_dft_data;
 int file_dft_length;
+
+typedef struct {
+	int threadid;
+	double*	fftw_in;
+	fftw_complex* fftw_out;
+	fftw_plan plan;
+} t_data;
 
 double randv(){
 	//return random value, assumes seed has been called
@@ -54,7 +63,12 @@ unsigned int randr(unsigned int min, unsigned int max){
 void* evaluate(void* input) {
 	//evaluate the fitness of a chromosome
 	//Thread I is responsible for chromosomes (I*P/N to I*P/N + P/N).
-	int threadID = *((int *)input);
+	t_data t_input = *((t_data *)input);
+	int threadID = t_input.threadid;
+	double* fftw_in = t_input.fftw_in;
+	fftw_complex* fftw_out = t_input.fftw_out;
+	fftw_plan plan = t_input.plan;
+
 	int chunk_size = population_size / threads_per_rank;
 	int i;
 	
@@ -77,7 +91,7 @@ void* evaluate(void* input) {
 		//audio_duration(&audio) -> seconds
 		chromo.fitness = 0;
 		if (audio_duration(&audio) > 0) {
-			chromo.fitness = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length);
+			chromo.fitness = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length, &fftw_in, &fftw_out, &plan);
 			if (chromo.fitness > 0) {
 				chromo.fitness = (1000000000.0 / chromo.fitness) + chromo.length;
 			} else {
@@ -97,7 +111,8 @@ void* evaluate(void* input) {
 void* breed(void* input){
 	//do crossover and mutation
 	//Thread I is responsible for chromosomes (I*P/N to I*P/N + P/N).
-	int threadID = *((int *)input);
+	t_data t_input = *((t_data *)input);
+	int threadID = t_input.threadid;
 	int chunk_size = population_size / threads_per_rank;
 	int i;
 	
@@ -218,6 +233,8 @@ int main(int argc, char *argv[]){
 	song_max_samples = ((song_max_duration + note_max_duration) * sample_rate);
 	SAMPLE_RATE = sample_rate;
 
+	int i,j,generation;//loop vars
+
 	//set RNG seed	
 	srand48_r (1202107158 + mpi_myrank * 1999, &drand_buf);
 	
@@ -225,11 +242,58 @@ int main(int argc, char *argv[]){
 	MPI_Status status;
 	
 	pthread_t* threads = malloc(threads_per_rank * sizeof(pthread_t));
-	int* threadData = malloc(threads_per_rank * sizeof(int));
+	t_data* threadData = malloc(threads_per_rank * sizeof(t_data));
 	
 	//create initial population
 	population = malloc(population_size * sizeof(chromosome));
 	new_population = malloc(population_size * sizeof(chromosome));
+
+	//create a plan for each thread
+	for(i = 0; i<threads_per_rank; i++){
+		threadData[i].threadid = i;
+
+		threadData[i].fftw_in = fftw_malloc( sizeof(double) * blockSize2);
+	    if ( !threadData[i].fftw_in ) {
+			printf("error: fftw_malloc 1 failed\n");
+			for( j=0; j < i; j++ ){
+				fftw_free( threadData[j].fftw_in );
+				fftw_destroy_plan( threadData[j].plan );
+				fftw_free( threadData[j].fftw_out );
+			}
+			free( threadData );
+			free( threads );
+			return 0;
+		}
+
+		threadData[i].fftw_out = fftw_malloc( sizeof(fftw_complex) * blockSize2 );
+	    if ( !threadData[i].fftw_out ) {
+			printf("error: fftw_malloc 2 failed\n");
+			for( j=0; j < i; j++ ){
+				fftw_free( threadData[j].fftw_in );
+				fftw_destroy_plan( threadData[j].plan );
+				fftw_free( threadData[j].fftw_out );
+			}
+			fftw_free( threadData[i].fftw_in );
+			free( threadData );
+			free( threads );
+			return 0;
+	    }
+
+		threadData[i].plan = fftw_plan_dft_r2c_1d( blockSize2, threadData[i].fftw_in, threadData[i].fftw_out, FFTW_MEASURE );
+		if ( !threadData[i].plan ) {
+			printf("error: Could not create plan\n");
+			for( j=0; j < i; j++ ){
+				fftw_free( threadData[j].fftw_in );
+				fftw_destroy_plan( threadData[j].plan );
+				fftw_free( threadData[j].fftw_out );
+			}
+			fftw_free( threadData[i].fftw_in );
+			fftw_free( threadData[i].fftw_out );
+			free( threadData );
+			free( threads );
+			return 0;
+		}
+	}
 	
 	/* create a mpi struct for chromosome */
     int blocklengths[3] = {MAX_GENES,1,1};
@@ -241,8 +305,6 @@ int main(int argc, char *argv[]){
 	offsets[2] = offsetof(chromosome, length);
     MPI_Type_create_struct(3, blocklengths, offsets, types, &MPI_CHROMO);
     MPI_Type_commit(&MPI_CHROMO);
-	
-	int i,j,generation;//loop vars
 	
 	for(i=0; i<population_size;i++){
 		chromosome tmp;
@@ -275,8 +337,7 @@ int main(int argc, char *argv[]){
 		//printf("begin evaluation\n");
 		
 		for (i = 0; i < threads_per_rank; i++) {
-			threadData[i] = i;
-			pthread_create(&threads[i], NULL, evaluate, threadData + i);
+			pthread_create(&threads[i], NULL, evaluate, &(threadData[i]));
 		}
 		for (i = 0; i < threads_per_rank; i++) {
 			pthread_join(threads[i], NULL);
@@ -301,7 +362,7 @@ int main(int argc, char *argv[]){
 				Audio audio = track_audio_fixed_samples(&track, song_max_samples);
 				char fname[256];
 				sprintf(fname, "%s/audio_result_%d.wav", output_directory, generation);
-				double similarity = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length);
+				double similarity = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length, &(threadData[0].fftw_in), &(threadData[0].fftw_out), &(threadData[0].plan) );
 				printf("\tDifference Score: %.0f\n", similarity);
 				audio_save(&audio, fname);
 				printf("\tNotes: %d (%d bytes)\n", track.count, chromo->length);
@@ -356,8 +417,7 @@ int main(int argc, char *argv[]){
 		*/
 		
 		for (i = 0; i < threads_per_rank; i++) {
-			threadData[i] = i;
-			pthread_create(&threads[i], NULL, breed, threadData + i);
+			pthread_create(&threads[i], NULL, breed, &(threadData[i]));
 		}
 		for (i = 0; i < threads_per_rank; i++) {
 			pthread_join(threads[i], NULL);
@@ -372,9 +432,15 @@ int main(int argc, char *argv[]){
 
 	MPI_Barrier(MPI_COMM_WORLD);	
 	MPI_Finalize();
-	
-	free(threads);
-	free(threadData);
+
+	for( i=0; i < threads_per_rank; i++ ){
+		fftw_free( threadData[i].fftw_in );
+		fftw_free( threadData[i].fftw_out );
+		fftw_destroy_plan( threadData[i].plan );
+	}
+	free( threadData );
+
+	free( threads );
 	free(population);
 	free(new_population);
 	
