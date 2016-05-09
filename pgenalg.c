@@ -12,6 +12,8 @@
 #include<string.h>
 #include<mpi.h>
 #include<pthread.h>
+#include<float.h>
+#include <fftw3.h>
 #include "audio.c"
 #include "comparison.h"
 
@@ -25,9 +27,12 @@ int threads_per_rank;//number of threads per rank
 double mutation_rate = 0.05;//mutation rate
 double crossover_rate = 0.97;//crossover rate
 
+unsigned int song_max_samples = 48000;
 double song_max_duration = 60;
 double note_max_duration = 5;
 double frequency_max = 25000;
+
+int blockSize2 = 256;
 
 //thread-safe rng stuff
 struct drand48_data drand_buf;
@@ -35,6 +40,14 @@ double dv;
 
 //DFT data for input file
 double** file_dft_data;
+int file_dft_length;
+
+typedef struct {
+	int threadid;
+	double*	fftw_in;
+	fftw_complex* fftw_out;
+	fftw_plan plan;
+} t_data;
 
 double randv(){
 	//return random value, assumes seed has been called
@@ -50,7 +63,12 @@ unsigned int randr(unsigned int min, unsigned int max){
 void* evaluate(void* input) {
 	//evaluate the fitness of a chromosome
 	//Thread I is responsible for chromosomes (I*P/N to I*P/N + P/N).
-	int threadID = *((int *)input);
+	t_data t_input = *((t_data *)input);
+	int threadID = t_input.threadid;
+	double* fftw_in = t_input.fftw_in;
+	fftw_complex* fftw_out = t_input.fftw_out;
+	fftw_plan plan = t_input.plan;
+
 	int chunk_size = population_size / threads_per_rank;
 	int i;
 	
@@ -64,15 +82,22 @@ void* evaluate(void* input) {
 		///printf("thread: %d index: %d fitness: %.5f size: %d\n",threadID,i,chromo.fitness,chromo.length);
 		
 		/* DO ACTUAL EVALUATION HERE */
-		
 		Track track = track_initialize_from_binary(chromo.genes, chromo.length,
 			song_max_duration, note_max_duration, frequency_max);
-		Audio audio = track_audio(&track);
+		Audio audio = track_audio_fixed_samples(&track, song_max_samples);
 		//audio_save(&audio, path);
 		
 		//audio.samples[audio.count]
 		//audio_duration(&audio) -> seconds
-		chromo.fitness = track.count;
+		chromo.fitness = 0;
+		if (audio_duration(&audio) > 0) {
+			chromo.fitness = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length, &fftw_in, &fftw_out, &plan);
+			if (chromo.fitness > 0) {
+				chromo.fitness = (1000000000.0 / chromo.fitness) + chromo.length;
+			} else {
+				chromo.fitness = DBL_MAX;
+			}
+		}
 		
 		audio_free(&audio);
 		track_free(&track);
@@ -86,7 +111,8 @@ void* evaluate(void* input) {
 void* breed(void* input){
 	//do crossover and mutation
 	//Thread I is responsible for chromosomes (I*P/N to I*P/N + P/N).
-	int threadID = *((int *)input);
+	t_data t_input = *((t_data *)input);
+	int threadID = t_input.threadid;
 	int chunk_size = population_size / threads_per_rank;
 	int i;
 	
@@ -200,7 +226,14 @@ int main(int argc, char *argv[]){
 	char* output_directory = argv[5];
 	
 	//read input file
-	ReadAudioFile(input_file, &file_dft_data);
+	unsigned int sample_rate = 0;
+	unsigned int sample_count = 0;
+	file_dft_length = ReadAudioFile(input_file, &file_dft_data, &sample_rate, &sample_count);
+	song_max_duration = (sample_count * 1.0 / sample_rate);
+	song_max_samples = sample_count;
+	SAMPLE_RATE = sample_rate;
+
+	int i,j,generation;//loop vars
 
 	//set RNG seed	
 	srand48_r (1202107158 + mpi_myrank * 1999, &drand_buf);
@@ -209,15 +242,62 @@ int main(int argc, char *argv[]){
 	MPI_Status status;
 	
 	pthread_t* threads = malloc(threads_per_rank * sizeof(pthread_t));
-	int* threadData = malloc(threads_per_rank * sizeof(int));
+	t_data* threadData = malloc(threads_per_rank * sizeof(t_data));
 	
 	//create initial population
 	population = malloc(population_size * sizeof(chromosome));
 	new_population = malloc(population_size * sizeof(chromosome));
+
+	//create a plan for each thread
+	for(i = 0; i<threads_per_rank; i++){
+		threadData[i].threadid = i;
+
+		threadData[i].fftw_in = fftw_malloc( sizeof(double) * blockSize2);
+	    if ( !threadData[i].fftw_in ) {
+			printf("error: fftw_malloc 1 failed\n");
+			for( j=0; j < i; j++ ){
+				fftw_free( threadData[j].fftw_in );
+				fftw_destroy_plan( threadData[j].plan );
+				fftw_free( threadData[j].fftw_out );
+			}
+			free( threadData );
+			free( threads );
+			return 0;
+		}
+
+		threadData[i].fftw_out = fftw_malloc( sizeof(fftw_complex) * blockSize2 );
+	    if ( !threadData[i].fftw_out ) {
+			printf("error: fftw_malloc 2 failed\n");
+			for( j=0; j < i; j++ ){
+				fftw_free( threadData[j].fftw_in );
+				fftw_destroy_plan( threadData[j].plan );
+				fftw_free( threadData[j].fftw_out );
+			}
+			fftw_free( threadData[i].fftw_in );
+			free( threadData );
+			free( threads );
+			return 0;
+	    }
+
+		threadData[i].plan = fftw_plan_dft_r2c_1d( blockSize2, threadData[i].fftw_in, threadData[i].fftw_out, FFTW_MEASURE );
+		if ( !threadData[i].plan ) {
+			printf("error: Could not create plan\n");
+			for( j=0; j < i; j++ ){
+				fftw_free( threadData[j].fftw_in );
+				fftw_destroy_plan( threadData[j].plan );
+				fftw_free( threadData[j].fftw_out );
+			}
+			fftw_free( threadData[i].fftw_in );
+			fftw_free( threadData[i].fftw_out );
+			free( threadData );
+			free( threads );
+			return 0;
+		}
+	}
 	
 	/* create a mpi struct for chromosome */
     int blocklengths[3] = {MAX_GENES,1,1};
-    MPI_Datatype types[3] = {MPI_CHAR, MPI_FLOAT, MPI_INT};
+    MPI_Datatype types[3] = {MPI_CHAR, MPI_DOUBLE, MPI_INT};
     MPI_Datatype MPI_CHROMO;
     MPI_Aint offsets[3];
     offsets[0] = offsetof(chromosome, genes);
@@ -226,12 +306,10 @@ int main(int argc, char *argv[]){
     MPI_Type_create_struct(3, blocklengths, offsets, types, &MPI_CHROMO);
     MPI_Type_commit(&MPI_CHROMO);
 	
-	int i,j,generation;//loop vars
-	
 	for(i=0; i<population_size;i++){
 		chromosome tmp;
 		tmp.fitness = 0;
-		int length = randr(5,20);//start chromosomes between 5 and 50 genes
+		int length = randr(12,120);//start chromosomes between with random size
 		tmp.length = length;
 		for(j=0;j<length;j++){//assign random char values (0-255)
 			tmp.genes[j] = (char)randr(0,255);//RAND_CHAR;
@@ -259,8 +337,7 @@ int main(int argc, char *argv[]){
 		//printf("begin evaluation\n");
 		
 		for (i = 0; i < threads_per_rank; i++) {
-			threadData[i] = i;
-			pthread_create(&threads[i], NULL, evaluate, threadData + i);
+			pthread_create(&threads[i], NULL, evaluate, &(threadData[i]));
 		}
 		for (i = 0; i < threads_per_rank; i++) {
 			pthread_join(threads[i], NULL);
@@ -268,7 +345,7 @@ int main(int argc, char *argv[]){
 		
 		//print some metrics every 10 generations
 		if(mpi_myrank == 0 && generation%10==0){
-			float max_fitness = 0;
+			double max_fitness = 0;
 			chromosome* chromo = NULL;
 			for(i=0; i<population_size; i++){
 				chromosome tmp = population[i];
@@ -278,16 +355,32 @@ int main(int argc, char *argv[]){
 					chromo = &population[i];
 				}
 			}
-			printf("Generation %d:\n\tMax fitness: %.5f\n",generation,max_fitness);
+			printf("Generation %d:\n\tMax fitness: %.10f\n",generation,max_fitness);
 			if (chromo != NULL) {
 				Track track = track_initialize_from_binary(chromo->genes, chromo->length,
 					song_max_duration, note_max_duration, frequency_max);
-				Audio audio = track_audio(&track);
-				char fname[128];
+				Audio audio = track_audio_fixed_samples(&track, song_max_samples);
+				char fname[256];
 				sprintf(fname, "%s/audio_result_%d.wav", output_directory, generation);
+				double similarity = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length, &(threadData[0].fftw_in), &(threadData[0].fftw_out), &(threadData[0].plan) );
+				printf("\tDifference Score: %.0f\n", similarity);
 				audio_save(&audio, fname);
-				printf("\tDuration: %.2fs\n\tNotes: %d\n",
-					audio_duration(&audio), track.count);
+				printf("\tNotes: %d (%d bytes)\n", track.count, chromo->length);
+				double freqMax = DBL_MIN; double freqMin = DBL_MAX;
+				double volMax = DBL_MIN; double volMin = DBL_MAX;
+				double durMax = DBL_MIN; double durMin = DBL_MAX;
+				for (i = 0; i < track.count; ++i) {
+					Note* note = &track.notes[i];
+					if (note->frequency < freqMin) freqMin = note->frequency;
+					if (note->frequency > freqMax) freqMax = note->frequency;
+					if (note->volume < volMin) volMin = note->volume;
+					if (note->volume > volMax) volMax = note->volume;
+					if (note->duration < durMin) durMin = note->duration;
+					if (note->duration > durMax) durMax = note->duration;
+				}
+				printf("\tFrequency: %.0f - %.0f\n", freqMin, freqMax);
+				printf("\tVolume: %.3f - %.3f\n", volMin, volMax);
+				printf("\tDuration: %.3f - %.3f\n", durMin, durMax);
 				audio_free(&audio);
 				track_free(&track);
 			}
@@ -324,8 +417,7 @@ int main(int argc, char *argv[]){
 		*/
 		
 		for (i = 0; i < threads_per_rank; i++) {
-			threadData[i] = i;
-			pthread_create(&threads[i], NULL, breed, threadData + i);
+			pthread_create(&threads[i], NULL, breed, &(threadData[i]));
 		}
 		for (i = 0; i < threads_per_rank; i++) {
 			pthread_join(threads[i], NULL);
@@ -340,9 +432,15 @@ int main(int argc, char *argv[]){
 
 	MPI_Barrier(MPI_COMM_WORLD);	
 	MPI_Finalize();
-	
-	free(threads);
-	free(threadData);
+
+	for( i=0; i < threads_per_rank; i++ ){
+		fftw_free( threadData[i].fftw_in );
+		fftw_free( threadData[i].fftw_out );
+		fftw_destroy_plan( threadData[i].plan );
+	}
+	free( threadData );
+
+	free( threads );
 	free(population);
 	free(new_population);
 	

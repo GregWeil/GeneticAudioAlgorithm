@@ -1,6 +1,5 @@
 to compile fftw-3.3.4 and libsndfile-1.0.26:
-from inside both library folders run the commands:
-
+extract libraries.zip, then from inside both library folders run the commands:
 ./configure
 make
 

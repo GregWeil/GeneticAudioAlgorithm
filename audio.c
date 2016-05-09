@@ -10,7 +10,7 @@ const double PI = 3.14159265358979323846;
 //Samples per second
 unsigned int SAMPLE_RATE = 48000;
 //When mixing a track, compress audio to this volume
-double VOLUME_MAX = 0.25;
+double VOLUME_MAX = 1;
 
 //A single audio sample
 typedef double Sample;
@@ -49,6 +49,10 @@ Audio audio_initialize(const unsigned int length) {
 	Audio audio;
 	audio.count = length;
 	audio.samples = (Sample*)malloc(audio.count * sizeof(Sample));
+	unsigned int i;
+	for (i = 0; i < audio.count; ++i) {
+		audio.samples[i] = 0;
+	}
 	return audio;
 }
 
@@ -159,8 +163,8 @@ unsigned int track_samples(const Track* track) {
 }
 
 //Generate the audio stream for a track of notes
-Audio track_audio(const Track* track) {
-	Audio audio = audio_initialize(track_samples(track));
+Audio track_audio_fixed_samples(const Track* track, const unsigned int count) {
+	Audio audio = audio_initialize(count);
 	unsigned int i, j;
 	double loudest = 1;
 	
@@ -170,6 +174,7 @@ Audio track_audio(const Track* track) {
 		Audio noteaudio = note_audio(note);
 		unsigned int notetime = (note->time * SAMPLE_RATE);
 		for (j = 0; j < noteaudio.count; ++j) {
+			if ((notetime + j) >= audio.count) break;
 			audio.samples[notetime + j] += noteaudio.samples[j];
 		}
 		audio_free(&noteaudio);
@@ -186,6 +191,10 @@ Audio track_audio(const Track* track) {
 	}
 	
 	return audio;
+}
+
+Audio track_audio(const Track* track) {
+	return track_audio_fixed_samples(track, track_samples(track));
 }
 
 
@@ -237,7 +246,7 @@ void audio_save(const Audio* audio, const char* path) {
 	EncodedSample* samples = (EncodedSample*)malloc(audio->count * sizeof(EncodedSample));
 	unsigned int i;
 	for (i = 0; i < audio->count; ++i) {
-		samples[i] = (fmin(fmax(audio->samples[i], 0), 1) * SHRT_MAX);
+		samples[i] = (fmin(fmax(audio->samples[i], -1), 1) * SHRT_MAX);
 	}
 	
 	//Heaader chunk
