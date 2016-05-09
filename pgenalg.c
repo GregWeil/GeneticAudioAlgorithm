@@ -299,10 +299,27 @@ int main(int argc, char *argv[]){
 				Track track = track_initialize_from_binary(chromo->genes, chromo->length,
 					song_max_duration, note_max_duration, frequency_max);
 				Audio audio = track_audio_fixed_samples(&track, song_max_samples);
-				char fname[128];
+				char fname[256];
 				sprintf(fname, "%s/audio_result_%d.wav", output_directory, generation);
+				double similarity = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length);
+				printf("\tDifference Score: %.0f\n", similarity);
 				audio_save(&audio, fname);
-				printf("\tNotes: %d\n", track.count);
+				printf("\tNotes: %d (%d bytes)\n", track.count, chromo->length);
+				double freqMax = DBL_MIN; double freqMin = DBL_MAX;
+				double volMax = DBL_MIN; double volMin = DBL_MAX;
+				double durMax = DBL_MIN; double durMin = DBL_MAX;
+				for (i = 0; i < track.count; ++i) {
+					Note* note = &track.notes[i];
+					if (note->frequency < freqMin) freqMin = note->frequency;
+					if (note->frequency > freqMax) freqMax = note->frequency;
+					if (note->volume < volMin) volMin = note->volume;
+					if (note->volume > volMax) volMax = note->volume;
+					if (note->duration < durMin) durMin = note->duration;
+					if (note->duration > durMax) durMax = note->duration;
+				}
+				printf("\tFrequency: %f - %f\n", freqMin, freqMax);
+				printf("\tVolume: %f - %f\n", volMin, volMax);
+				printf("\tDuration: %f - %f\n", durMin, durMax);
 				audio_free(&audio);
 				track_free(&track);
 			}
