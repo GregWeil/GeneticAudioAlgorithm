@@ -233,7 +233,7 @@ int main(int argc, char *argv[]){
 	
 	/* create a mpi struct for chromosome */
     int blocklengths[3] = {MAX_GENES,1,1};
-    MPI_Datatype types[3] = {MPI_CHAR, MPI_FLOAT, MPI_INT};
+    MPI_Datatype types[3] = {MPI_CHAR, MPI_DOUBLE, MPI_INT};
     MPI_Datatype MPI_CHROMO;
     MPI_Aint offsets[3];
     offsets[0] = offsetof(chromosome, genes);
@@ -284,7 +284,7 @@ int main(int argc, char *argv[]){
 		
 		//print some metrics every 10 generations
 		if(mpi_myrank == 0 && generation%10==0){
-			float max_fitness = 0;
+			double max_fitness = 0;
 			chromosome* chromo = NULL;
 			for(i=0; i<population_size; i++){
 				chromosome tmp = population[i];
