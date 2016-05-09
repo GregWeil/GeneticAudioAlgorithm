@@ -294,7 +294,7 @@ int main(int argc, char *argv[]){
 					chromo = &population[i];
 				}
 			}
-			printf("Generation %d:\n\tMax fitness: %.5f\n",generation,max_fitness);
+			printf("Generation %d:\n\tMax fitness: %.10f\n",generation,max_fitness);
 			if (chromo != NULL) {
 				Track track = track_initialize_from_binary(chromo->genes, chromo->length,
 					song_max_duration, note_max_duration, frequency_max);

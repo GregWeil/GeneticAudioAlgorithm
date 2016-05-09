@@ -1,7 +1,7 @@
 #define MAX_GENES 4096
 typedef struct {
 	char genes[MAX_GENES];
-	float fitness;
+	double fitness;
 	int length;//length of genes
 	
 } chromosome;
