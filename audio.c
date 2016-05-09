@@ -49,6 +49,10 @@ Audio audio_initialize(const unsigned int length) {
 	Audio audio;
 	audio.count = length;
 	audio.samples = (Sample*)malloc(audio.count * sizeof(Sample));
+	unsigned int i;
+	for (i = 0; i < audio.count; ++i) {
+		audio.samples[i] = 0;
+	}
 	return audio;
 }
 
@@ -242,7 +246,7 @@ void audio_save(const Audio* audio, const char* path) {
 	EncodedSample* samples = (EncodedSample*)malloc(audio->count * sizeof(EncodedSample));
 	unsigned int i;
 	for (i = 0; i < audio->count; ++i) {
-		samples[i] = (fmin(fmax(audio->samples[i], 0), 1) * SHRT_MAX);
+		samples[i] = (fmin(fmax(audio->samples[i], -1), 1) * SHRT_MAX);
 	}
 	
 	//Heaader chunk
