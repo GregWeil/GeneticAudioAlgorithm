@@ -161,11 +161,11 @@ void mutate(chromosome* chromo){
 	//mutate a chromosome in place
 
 	int i,j;
-	for(i=chromo->length; i>0; i--){
+	for(i=0; i<chromo->length;i++){
 		if(randv() < mutation_rate){//randomly mutate based on mutation rate
 			switch(randr(0,5)){
 				case 0://insertion
-					if(chromo->length < MAX_GENES - NOTE_BYTES){//only insert if room left in memory
+					if(chromo->length + NOTE_BYTES < MAX_GENES ){//only insert if room left in memory
 						memmove(chromo->genes + i + NOTE_BYTES,chromo->genes + i, chromo->length-i);
 						for(j=0;j<NOTE_BYTES;j++){
 							chromo->genes[i+j] = (char)randr(0,255);//RAND_CHAR;
