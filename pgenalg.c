@@ -161,10 +161,10 @@ void mutate(chromosome* chromo){
 	//mutate a chromosome in place
 
 	int i,j;
-	for(i=0; i<chromo->length;i++){
-		if(randv() < mutation_rate){//randomly mutate based on mutation rate
-			switch(randr(0,5)){
-				case 0://insertion
+	for(i=0; i<chromo->length;i+=NOTE_BYTES){
+		switch(randr(0,2)){
+			case 0://insertion
+				if(randv() < mutation_rate){//randomly mutate based on mutation rate
 					if(chromo->length + NOTE_BYTES < MAX_GENES ){//only insert if room left in memory
 						memmove(chromo->genes + i + NOTE_BYTES,chromo->genes + i, chromo->length-i);
 						for(j=0;j<NOTE_BYTES;j++){
@@ -172,25 +172,28 @@ void mutate(chromosome* chromo){
 						}
 						chromo->length += NOTE_BYTES;
 					}
-					break;
-					
-				case 1://deletion
-					if(chromo->length >= NOTE_BYTES){
+				}
+				break;
+				
+			case 1://deletion
+				if(randv() < mutation_rate){//randomly mutate based on mutation rate
+					if(chromo->length >= NOTE_BYTES + i ){//only insert if room left in memory
 						memmove(chromo->genes + i,chromo->genes + i + NOTE_BYTES,chromo->length-i-NOTE_BYTES);
 						chromo->length -= NOTE_BYTES;
 					}
-					break;
-					
-				case 2://substitution
-				case 3:
-				case 4:
-				case 5:
-					chromo->genes[i] = (char)randr(0,255);//RAND_CHAR;
-					break;
+				}
+				break;
 				
-				default:
-					printf("should not happen...\n");
-			}
+			case 2://substitution
+				for(j=0;j<NOTE_BYTES;j++){
+					if(randv() < mutation_rate){//randomly mutate based on mutation rate
+						chromo->genes[i+j] = (char)randr(0,255);//RAND_CHAR;
+					}
+				}
+				break;
+			
+			default:
+				printf("should not happen...\n");
 		}
 	}
 }
@@ -323,7 +326,7 @@ int main(int argc, char *argv[]){
 	for(i=0; i<population_size;i++){
 		chromosome tmp;
 		tmp.fitness = 0;
-		int length = randr(12,120);//start chromosomes between with random size
+		int length = randr(1,10)*NOTE_BYTES;//start chromosomes between with random size
 		tmp.length = length;
 		for(j=0;j<length;j++){//assign random char values (0-255)
 			tmp.genes[j] = (char)randr(0,255);//RAND_CHAR;
