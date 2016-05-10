@@ -161,7 +161,7 @@ void mutate(chromosome* chromo){
 	//mutate a chromosome in place
 
 	int i,j;
-	for(i=0; i<chromo->length;i++){
+	for(i=chromo->length; i>0; i--){
 		if(randv() < mutation_rate){//randomly mutate based on mutation rate
 			switch(randr(0,5)){
 				case 0://insertion
