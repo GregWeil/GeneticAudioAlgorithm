@@ -369,7 +369,7 @@ int main(int argc, char *argv[]){
 		}
 		
 		//print some metrics every 10 generations
-		if(mpi_myrank == 0 && (generation%10==0 || generation == max_generations)){
+		if(mpi_myrank == 0){
 			double max_fitness = 0;
 			chromosome* chromo = NULL;
 			for(i=0; i<population_size; i++){
@@ -381,7 +381,7 @@ int main(int argc, char *argv[]){
 				}
 			}
 			printf("Generation %d:\n\tMax fitness: %.10f\n",generation,max_fitness);
-			if (chromo != NULL) {
+			if (chromo != NULL && (generation%10==0 || generation == max_generations)) {
 				Track track = track_initialize_from_binary(chromo->genes, chromo->length,
 					song_max_duration, note_max_duration, frequency_max);
 				Audio audio = track_audio_fixed_samples(&track, song_max_samples);
