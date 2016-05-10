@@ -165,7 +165,7 @@ void mutate(chromosome* chromo){
 		if(randv() < mutation_rate){//randomly mutate based on mutation rate
 			switch(randr(0,5)){
 				case 0://insertion
-					if(chromo->length < MAX_GENES){//only insert if room left in memory
+					if(chromo->length < MAX_GENES - NOTE_BYTES){//only insert if room left in memory
 						memmove(chromo->genes + i + NOTE_BYTES,chromo->genes + i, chromo->length-i);
 						for(j=0;j<NOTE_BYTES;j++){
 							chromo->genes[i+j] = (char)randr(0,255);//RAND_CHAR;
@@ -175,8 +175,10 @@ void mutate(chromosome* chromo){
 					break;
 					
 				case 1://deletion
-					memmove(chromo->genes + i,chromo->genes + i + NOTE_BYTES,chromo->length-i-NOTE_BYTES);
-					chromo->length -= NOTE_BYTES;
+					if(chromo->length >= NOTE_BYTES){
+						memmove(chromo->genes + i,chromo->genes + i + NOTE_BYTES,chromo->length-i-NOTE_BYTES);
+						chromo->length -= NOTE_BYTES;
+					}
 					break;
 					
 				case 2://substitution
