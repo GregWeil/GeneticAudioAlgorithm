@@ -21,6 +21,7 @@ typedef struct {
 	unsigned int count;
 } Audio;
 
+//The possible waveforms for a note
 typedef enum {
 	SIN,
 	SQUARE,
@@ -67,20 +68,24 @@ double audio_duration(const Audio* audio) {
 }
 
 
+//Sample a sin wave
 double wave_sample_sin(double time, double frequency) {
 	return sin(2.0 * PI * time * frequency);
 }
 
+//Sample a square wave
 double wave_sample_square(double time, double frequency) {
 	double wave = (fmod(time, (1 / frequency)) * frequency);
 	return ((wave > 0.5) - (wave < 0.5));
 }
 
+//Sample a triangle wave
 double wave_sample_triangle(double time, double frequency) {
 	double wave = fmod(time, (1 / frequency));
 	return (fabs((4.0 * wave * frequency) - 2.0) - 1.0);
 }
 
+//Sample a sawtooth wave
 double wave_sample_sawtooth(double time, double frequency) {
 	double wave = fmod(time, (1 / frequency));
 	return ((2.0 * wave * frequency) - 1.0);
@@ -108,24 +113,25 @@ unsigned int note_samples(const Note* note) {
 	return (note->duration * SAMPLE_RATE);
 }
 
-//Build an audio stream from a note
-void note_audio_preallocated(const Note* note, Audio* audio) {
+//Build an audio stream from a note, adding the samples into an allocated stream
+void note_audio_preallocated(const Note* note, Audio* audio, const unsigned int start) {
 	double (*wavesample)(double, double) = &wave_sample_sin;
 	if (note->waveform == SIN) wavesample = &wave_sample_sin;
 	else if (note->waveform == SQUARE) wavesample = &wave_sample_square;
 	else if (note->waveform == TRIANGLE) wavesample = &wave_sample_triangle;
 	else if (note->waveform == SAWTOOTH) wavesample = &wave_sample_sawtooth;
 	unsigned int i, count = note_samples(note);
-	if (audio->count < count) count = audio->count;
+	if ((audio->count - start) < count) count = (audio->count - start);
 	for (i = 0; i < count; ++i) {
 		double wave = (*wavesample)((i * 1.0 / SAMPLE_RATE), note->frequency);
-		audio->samples[i] = (wave * note->volume);
+		audio->samples[i + start] += (wave * note->volume);
 	}
 }
 
+//Allocate and build the audio stream for a note in one go
 Audio note_audio(const Note* note) {
 	Audio audio = audio_initialize(note_samples(note));
-	note_audio_preallocated(note, &audio);
+	note_audio_preallocated(note, &audio, 0);
 	return audio;
 }
 
@@ -167,33 +173,18 @@ unsigned int track_samples(const Track* track) {
 	return (track_duration(track) * SAMPLE_RATE);
 }
 
-//Generate the audio stream for a track of notes
+//Generate the audio stream for a track with a fixed length
 Audio track_audio_fixed_samples(const Track* track, const unsigned int count) {
 	Audio audio = audio_initialize(count);
-	unsigned int i, j;
 	double loudestsample = 1;
-	unsigned int notesamples = 0;
-	
-	//Get the length of the longest note
-	for (i = 0; i < track->count; ++i) {
-		if (note_samples(&track->notes[i]) > notesamples) {
-			notesamples = note_samples(&track->notes[i]);
-		}
-	}
+	unsigned int i;
 	
 	//Add together all of the notes
-	Audio noteaudio = audio_initialize(notesamples);
 	for (i = 0; i < track->count; ++i) {
 		Note* note = &track->notes[i];
-		note_audio_preallocated(note, &noteaudio);
 		unsigned int notetime = (note->time * SAMPLE_RATE);
-		notesamples = note_samples(note);
-		for (j = 0; j < notesamples; ++j) {
-			if ((notetime + j) >= audio.count) break;
-			audio.samples[notetime + j] += noteaudio.samples[j];
-		}
+		note_audio_preallocated(note, &audio, notetime);
 	}
-	audio_free(&noteaudio);
 	
 	//Find the maximum loudness in the track
 	for (i = 0; i < audio.count; ++i) {
@@ -208,6 +199,7 @@ Audio track_audio_fixed_samples(const Track* track, const unsigned int count) {
 	return audio;
 }
 
+//Generate the audio stream for a track of notes
 Audio track_audio(const Track* track) {
 	return track_audio_fixed_samples(track, track_samples(track));
 }
@@ -228,7 +220,10 @@ Track track_initialize_from_binary(const char* data, const unsigned int size,
 	const unsigned int notesize = (startsize + wavesize
 		+ frequencysize + volumesize + durationsize);
 	
+	//Create the track
 	Track track = track_initialize(size / notesize);
+	
+	//Loop through the data
 	unsigned int i;
 	for (i = 0; i < track.count; ++i) {
 		unsigned int index = (i * notesize);
