@@ -72,9 +72,13 @@ void* evaluate(void* input) {
 	fftw_plan plan = t_input.plan;
 
 	int chunk_size = population_size / threads_per_rank;
+	int remainder = population_size % chunk_size;
+	int start = threadID * chunk_size;
+	start += (threadID < remainder) ? threadID : remainder;
+	if (threadID < remainder) chunk_size += 1;
 	int i;
 	
-	for(i=threadID*chunk_size; i < threadID*chunk_size + chunk_size; i++){
+	for(i=start; i < start + chunk_size; i++){
 		chromosome chromo = population[i];
 		/*//begin test evaluation
 		chromo.fitness = chromo.length;
@@ -116,9 +120,13 @@ void* breed(void* input){
 	t_data t_input = *((t_data *)input);
 	int threadID = t_input.threadid;
 	int chunk_size = population_size / threads_per_rank;
+	int remainder = population_size % chunk_size;
+	int start = threadID * chunk_size;
+	start += (threadID < remainder) ? threadID : remainder;
+	if (threadID < remainder) chunk_size += 1;
 	int i;
 	
-	for(i=threadID*chunk_size; i < threadID*chunk_size + chunk_size; i+=2){
+	for(i=start + 1; i < start + chunk_size; i+=2){
 		chromosome ch1 = *tournament_selection(8);
 		chromosome ch2 = *tournament_selection(8);
 		chromosome ret[2];//return buffer for new chromosomes
@@ -131,8 +139,8 @@ void* breed(void* input){
 		//do mutations
 		mutate(&ret[0]);
 		mutate(&ret[1]);
-		new_population[i] = ret[0];
-		new_population[i+1] = ret[1];
+		new_population[i-1] = ret[0];
+		new_population[i] = ret[1];
 	}
 	
 	return 0;
