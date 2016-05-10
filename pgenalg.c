@@ -90,7 +90,7 @@ void* evaluate(void* input) {
 		if (audio_duration(&audio) > 0) {
 			chromo.fitness = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length, &fftw_in, &fftw_out, &plan);
 			if (chromo.fitness > 0) {
-				chromo.fitness = (1000000000.0 / chromo.fitness) * chromo.length;
+				chromo.fitness = (1000000000.0 / chromo.fitness) + track.count;
 			} else {
 				chromo.fitness = DBL_MAX;
 			}
@@ -259,6 +259,9 @@ int main(int argc, char *argv[]){
 		note_max_duration = song_max_duration;
 	}
 	SAMPLE_RATE = sample_rate;
+	if (mpi_myrank == 0) {
+		printf("Input File:\n\tDuration: %f\n\tSample Rate: %u\n", song_max_duration, sample_rate);
+	}
 
 	int i,j,generation;//loop vars
 
@@ -381,7 +384,7 @@ int main(int argc, char *argv[]){
 					chromo = &population[i];
 				}
 			}
-			printf("Generation %d:\n\tMax fitness: %.10f\n",generation,max_fitness);
+			printf("Generation %d:\n\tMax fitness: %.3f\n",generation,max_fitness);
 			if (chromo != NULL && (generation%10==0 || generation == max_generations)) {
 				Track track = track_initialize_from_binary(chromo->genes, chromo->length,
 					song_max_duration, note_max_duration, frequency_max);
