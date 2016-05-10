@@ -99,7 +99,7 @@ void* evaluate(void* input) {
 		if (audio_duration(&audio) > 0) {
 			chromo.fitness = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length, &fftw_in, &fftw_out, &plan);
 			if (chromo.fitness > 0) {
-				chromo.fitness = (1000000000.0 / chromo.fitness) + chromo.length;
+				chromo.fitness = (1000000000.0 / chromo.fitness) * chromo.length;
 			} else {
 				chromo.fitness = DBL_MAX;
 			}
@@ -149,8 +149,11 @@ void* breed(void* input){
 void one_point_crossover(chromosome ch1, chromosome ch2, chromosome* out){
         //Perform one point crossover between two chromosomes
 		double r = randv();
-        int r1 = (int)(ch1.length * r);
-        int r2 = (int)(ch2.length * r);
+		//need to round to nearest note to prevent offset problem
+		
+        int r1 = ((int)(ch1.length * r / NOTE_BYTES)) * NOTE_BYTES;
+        int r2 = ((int)(ch2.length * r / NOTE_BYTES)) * NOTE_BYTES;
+		
 		//slice ch1 and ch2 and swap the partitions
 		int nlen1 = (r1 + ch2.length - r2);
 		int nlen2 = (r2 + ch1.length - r1);
@@ -169,12 +172,13 @@ void mutate(chromosome* chromo){
 	//mutate a chromosome in place
 
 	int i,j;
+	chromo->fitness = 123456;
 	for(i=0; i<chromo->length;i+=NOTE_BYTES){
 		switch(randr(0,2)){
 			case 0://insertion
 				if(randv() < mutation_rate){//randomly mutate based on mutation rate
 					if(chromo->length + NOTE_BYTES < MAX_GENES ){//only insert if room left in memory
-						memmove(chromo->genes + i + NOTE_BYTES,chromo->genes + i, chromo->length-i);
+						memmove(chromo->genes + i + NOTE_BYTES, chromo->genes + i, chromo->length-i);
 						for(j=0;j<NOTE_BYTES;j++){
 							chromo->genes[i+j] = (char)randr(0,255);//RAND_CHAR;
 						}
@@ -203,6 +207,9 @@ void mutate(chromosome* chromo){
 			default:
 				printf("should not happen...\n");
 		}
+	}
+	if(chromo->fitness != 123456){
+		printf("@@@@@@@@@@@@@@@ BIG PROBLEMS @@@@@@@@@@@@@@@\n");
 	}
 }
 
@@ -369,45 +376,46 @@ int main(int argc, char *argv[]){
 		}
 		
 		//print some metrics every 10 generations
-		if(mpi_myrank == 0 && (generation%10==0 || generation == max_generations)){
+		if(mpi_myrank == 0){
 			double max_fitness = 0;
 			chromosome* chromo = NULL;
 			for(i=0; i<population_size; i++){
 				chromosome tmp = population[i];
-				///printf("index: %d fitness %.5f size: %d\n",i,tmp.fitness,tmp.length);
 				if(tmp.fitness > max_fitness){
 					max_fitness = tmp.fitness;
 					chromo = &population[i];
 				}
 			}
 			printf("Generation %d:\n\tMax fitness: %.10f\n",generation,max_fitness);
-			if (chromo != NULL) {
-				Track track = track_initialize_from_binary(chromo->genes, chromo->length,
-					song_max_duration, note_max_duration, frequency_max);
-				Audio audio = track_audio_fixed_samples(&track, song_max_samples);
-				char fname[256];
-				sprintf(fname, "%s/audio_result_%d.wav", output_directory, generation);
-				double similarity = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length, &(threadData[0].fftw_in), &(threadData[0].fftw_out), &(threadData[0].plan) );
-				printf("\tDifference Score: %.0f\n", similarity);
-				audio_save(&audio, fname);
-				printf("\tNotes: %d (%d bytes)\n", track.count, chromo->length);
-				double freqMax = DBL_MIN; double freqMin = DBL_MAX;
-				double volMax = DBL_MIN; double volMin = DBL_MAX;
-				double durMax = DBL_MIN; double durMin = DBL_MAX;
-				for (i = 0; i < track.count; ++i) {
-					Note* note = &track.notes[i];
-					if (note->frequency < freqMin) freqMin = note->frequency;
-					if (note->frequency > freqMax) freqMax = note->frequency;
-					if (note->volume < volMin) volMin = note->volume;
-					if (note->volume > volMax) volMax = note->volume;
-					if (note->duration < durMin) durMin = note->duration;
-					if (note->duration > durMax) durMax = note->duration;
+			if(generation%20==0 || generation == max_generations){
+				if (chromo != NULL) {
+					Track track = track_initialize_from_binary(chromo->genes, chromo->length,
+						song_max_duration, note_max_duration, frequency_max);
+					Audio audio = track_audio_fixed_samples(&track, song_max_samples);
+					char fname[256];
+					sprintf(fname, "%s/audio_result_%d.wav", output_directory, generation);
+					double similarity = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length, &(threadData[0].fftw_in), &(threadData[0].fftw_out), &(threadData[0].plan) );
+					printf("\tDifference Score: %.0f\n", similarity);
+					audio_save(&audio, fname);
+					printf("\tNotes: %d (%d bytes)\n", track.count, chromo->length);
+					double freqMax = DBL_MIN; double freqMin = DBL_MAX;
+					double volMax = DBL_MIN; double volMin = DBL_MAX;
+					double durMax = DBL_MIN; double durMin = DBL_MAX;
+					for (i = 0; i < track.count; ++i) {
+						Note* note = &track.notes[i];
+						if (note->frequency < freqMin) freqMin = note->frequency;
+						if (note->frequency > freqMax) freqMax = note->frequency;
+						if (note->volume < volMin) volMin = note->volume;
+						if (note->volume > volMax) volMax = note->volume;
+						if (note->duration < durMin) durMin = note->duration;
+						if (note->duration > durMax) durMax = note->duration;
+					}
+					printf("\tFrequency: %.0f - %.0f\n", freqMin, freqMax);
+					printf("\tVolume: %.3f - %.3f\n", volMin, volMax);
+					printf("\tDuration: %.3f - %.3f\n", durMin, durMax);
+					audio_free(&audio);
+					track_free(&track);
 				}
-				printf("\tFrequency: %.0f - %.0f\n", freqMin, freqMax);
-				printf("\tVolume: %.3f - %.3f\n", volMin, volMax);
-				printf("\tDuration: %.3f - %.3f\n", durMin, durMax);
-				audio_free(&audio);
-				track_free(&track);
 			}
 		}
 		
