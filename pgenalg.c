@@ -226,11 +226,14 @@ chromosome* tournament_selection(int tournament_size){
 }
 
 int main(int argc, char *argv[]){
-	
+	double starttime, endtime;
+
 	//initialize MPI for K ranks
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &mpi_commsize);
 	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_myrank);
+
+	starttime = MPI_Wtime();
 
 	if(argc != 6){
 		if(mpi_myrank == 0){
@@ -456,6 +459,12 @@ int main(int argc, char *argv[]){
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD);	
+
+	if(mpi_myrank == 0){ 
+        endtime = MPI_Wtime();
+        printf("That took %f seconds\n", endtime - starttime);
+    }
+
 	MPI_Finalize();
 
 	for( i=0; i < threads_per_rank; i++ ){
