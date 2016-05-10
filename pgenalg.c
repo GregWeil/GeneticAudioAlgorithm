@@ -31,7 +31,7 @@ double crossover_rate = 0.97;//crossover rate
 
 unsigned int song_max_samples = 48000;
 double song_max_duration = 60;
-double note_max_duration = 5;
+double note_max_duration = 3;
 double frequency_max = 25000;
 
 int blockSize2 = 256;
@@ -255,6 +255,9 @@ int main(int argc, char *argv[]){
 	}
 	song_max_duration = (sample_count * 1.0 / sample_rate);
 	song_max_samples = sample_count;
+	if (song_max_duration < note_max_duration) {
+		note_max_duration = song_max_duration;
+	}
 	SAMPLE_RATE = sample_rate;
 
 	int i,j,generation;//loop vars
