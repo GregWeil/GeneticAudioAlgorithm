@@ -109,18 +109,23 @@ unsigned int note_samples(const Note* note) {
 }
 
 //Build an audio stream from a note
-Audio note_audio(const Note* note) {
-	Audio audio = audio_initialize(note_samples(note));
+void note_audio_preallocated(const Note* note, Audio* audio) {
 	double (*wavesample)(double, double) = &wave_sample_sin;
 	if (note->waveform == SIN) wavesample = &wave_sample_sin;
 	else if (note->waveform == SQUARE) wavesample = &wave_sample_square;
 	else if (note->waveform == TRIANGLE) wavesample = &wave_sample_triangle;
 	else if (note->waveform == SAWTOOTH) wavesample = &wave_sample_sawtooth;
-	unsigned int i;
-	for (i = 0; i < audio.count; ++i) {
+	unsigned int i, count = note_samples(note);
+	if (audio->count < count) count = audio->count;
+	for (i = 0; i < count; ++i) {
 		double wave = (*wavesample)((i * 1.0 / SAMPLE_RATE), note->frequency);
-		audio.samples[i] = (wave * note->volume);
+		audio->samples[i] = (wave * note->volume);
 	}
+}
+
+Audio note_audio(const Note* note) {
+	Audio audio = audio_initialize(note_samples(note));
+	note_audio_preallocated(note, &audio);
 	return audio;
 }
 
@@ -166,28 +171,38 @@ unsigned int track_samples(const Track* track) {
 Audio track_audio_fixed_samples(const Track* track, const unsigned int count) {
 	Audio audio = audio_initialize(count);
 	unsigned int i, j;
-	double loudest = 1;
+	double loudestsample = 1;
+	unsigned int notesamples = 0;
+	
+	//Get the length of the longest note
+	for (i = 0; i < track->count; ++i) {
+		if (note_samples(&track->notes[i]) > notesamples) {
+			notesamples = note_samples(&track->notes[i]);
+		}
+	}
 	
 	//Add together all of the notes
+	Audio noteaudio = audio_initialize(notesamples);
 	for (i = 0; i < track->count; ++i) {
 		Note* note = &track->notes[i];
-		Audio noteaudio = note_audio(note);
+		note_audio_preallocated(note, &noteaudio);
 		unsigned int notetime = (note->time * SAMPLE_RATE);
-		for (j = 0; j < noteaudio.count; ++j) {
+		notesamples = note_samples(note);
+		for (j = 0; j < notesamples; ++j) {
 			if ((notetime + j) >= audio.count) break;
 			audio.samples[notetime + j] += noteaudio.samples[j];
 		}
-		audio_free(&noteaudio);
 	}
+	audio_free(&noteaudio);
 	
 	//Find the maximum loudness in the track
 	for (i = 0; i < audio.count; ++i) {
-		loudest = fmax(loudest, fabs(audio.samples[i]));
+		loudestsample = fmax(loudestsample, fabs(audio.samples[i]));
 	}
 	
 	//Compress the high range samples
 	for (i = 0; i < audio.count; ++i) {
-		audio.samples[i] = (audio.samples[i] * VOLUME_MAX / loudest);
+		audio.samples[i] = (audio.samples[i] * VOLUME_MAX / loudestsample);
 	}
 	
 	return audio;
