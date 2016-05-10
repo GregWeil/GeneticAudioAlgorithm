@@ -80,21 +80,12 @@ void* evaluate(void* input) {
 	
 	for(i=start; i < start + chunk_size; i++){
 		chromosome chromo = population[i];
-		/*//begin test evaluation
-		chromo.fitness = chromo.length;
-		population[i] = chromo;
-		//end test evaluation*/
-		
-		///printf("thread: %d index: %d fitness: %.5f size: %d\n",threadID,i,chromo.fitness,chromo.length);
 		
 		/* DO ACTUAL EVALUATION HERE */
 		Track track = track_initialize_from_binary(chromo.genes, chromo.length,
 			song_max_duration, note_max_duration, frequency_max);
 		Audio audio = track_audio_fixed_samples(&track, song_max_samples);
-		//audio_save(&audio, path);
-		
-		//audio.samples[audio.count]
-		//audio_duration(&audio) -> seconds
+
 		chromo.fitness = 0;
 		if (audio_duration(&audio) > 0) {
 			chromo.fitness = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length, &fftw_in, &fftw_out, &plan);
@@ -172,7 +163,6 @@ void mutate(chromosome* chromo){
 	//mutate a chromosome in place
 
 	int i,j;
-	chromo->fitness = 123456;
 	for(i=0; i<chromo->length;i+=NOTE_BYTES){
 		switch(randr(0,2)){
 			case 0://insertion
@@ -208,9 +198,6 @@ void mutate(chromosome* chromo){
 				printf("should not happen...\n");
 		}
 	}
-	if(chromo->fitness != 123456){
-		printf("@@@@@@@@@@@@@@@ BIG PROBLEMS @@@@@@@@@@@@@@@\n");
-	}
 }
 
 chromosome* random_chromosome_from_population(){
@@ -233,11 +220,14 @@ chromosome* tournament_selection(int tournament_size){
 }
 
 int main(int argc, char *argv[]){
-	
+	double starttime, endtime;
+
 	//initialize MPI for K ranks
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &mpi_commsize);
 	MPI_Comm_rank(MPI_COMM_WORLD, &mpi_myrank);
+
+	starttime = MPI_Wtime();
 
 	if(argc != 6){
 		if(mpi_myrank == 0){
@@ -387,34 +377,27 @@ int main(int argc, char *argv[]){
 				}
 			}
 			printf("Generation %d:\n\tMax fitness: %.10f\n",generation,max_fitness);
-			if(generation%20==0 || generation == max_generations){
-				if (chromo != NULL) {
-					Track track = track_initialize_from_binary(chromo->genes, chromo->length,
-						song_max_duration, note_max_duration, frequency_max);
-					Audio audio = track_audio_fixed_samples(&track, song_max_samples);
-					char fname[256];
-					sprintf(fname, "%s/audio_result_%d.wav", output_directory, generation);
-					double similarity = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length, &(threadData[0].fftw_in), &(threadData[0].fftw_out), &(threadData[0].plan) );
-					printf("\tDifference Score: %.0f\n", similarity);
-					audio_save(&audio, fname);
-					printf("\tNotes: %d (%d bytes)\n", track.count, chromo->length);
-					double freqMax = DBL_MIN; double freqMin = DBL_MAX;
-					double volMax = DBL_MIN; double volMin = DBL_MAX;
-					double durMax = DBL_MIN; double durMin = DBL_MAX;
-					for (i = 0; i < track.count; ++i) {
-						Note* note = &track.notes[i];
-						if (note->frequency < freqMin) freqMin = note->frequency;
-						if (note->frequency > freqMax) freqMax = note->frequency;
-						if (note->volume < volMin) volMin = note->volume;
-						if (note->volume > volMax) volMax = note->volume;
-						if (note->duration < durMin) durMin = note->duration;
-						if (note->duration > durMax) durMax = note->duration;
-					}
-					printf("\tFrequency: %.0f - %.0f\n", freqMin, freqMax);
-					printf("\tVolume: %.3f - %.3f\n", volMin, volMax);
-					printf("\tDuration: %.3f - %.3f\n", durMin, durMax);
-					audio_free(&audio);
-					track_free(&track);
+			if (chromo != NULL && (generation%10==0 || generation == max_generations)) {
+				Track track = track_initialize_from_binary(chromo->genes, chromo->length,
+					song_max_duration, note_max_duration, frequency_max);
+				Audio audio = track_audio_fixed_samples(&track, song_max_samples);
+				char fname[256];
+				sprintf(fname, "%s/audio_result_%d.wav", output_directory, generation);
+				double similarity = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length, &(threadData[0].fftw_in), &(threadData[0].fftw_out), &(threadData[0].plan) );
+				printf("\tDifference Score: %.0f\n", similarity);
+				audio_save(&audio, fname);
+				printf("\tNotes: %d (%d bytes)\n", track.count, chromo->length);
+				double freqMax = DBL_MIN; double freqMin = DBL_MAX;
+				double volMax = DBL_MIN; double volMin = DBL_MAX;
+				double durMax = DBL_MIN; double durMin = DBL_MAX;
+				for (i = 0; i < track.count; ++i) {
+					Note* note = &track.notes[i];
+					if (note->frequency < freqMin) freqMin = note->frequency;
+					if (note->frequency > freqMax) freqMax = note->frequency;
+					if (note->volume < volMin) volMin = note->volume;
+					if (note->volume > volMax) volMax = note->volume;
+					if (note->duration < durMin) durMin = note->duration;
+					if (note->duration > durMax) durMax = note->duration;
 				}
 			}
 		}
@@ -464,6 +447,12 @@ int main(int argc, char *argv[]){
 	}
 
 	MPI_Barrier(MPI_COMM_WORLD);	
+
+	if(mpi_myrank == 0){ 
+        endtime = MPI_Wtime();
+        printf("That took %f seconds\n", endtime - starttime);
+    }
+
 	MPI_Finalize();
 
 	for( i=0; i < threads_per_rank; i++ ){
