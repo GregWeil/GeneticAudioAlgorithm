@@ -178,10 +178,12 @@ void mutate(chromosome* chromo){
 				break;
 				
 			case 1://deletion
-				if(randv() < mutation_rate){//randomly mutate based on mutation rate
-					if(chromo->length >= NOTE_BYTES + i ){//only insert if room left in memory
-						memmove(chromo->genes + i,chromo->genes + i + NOTE_BYTES,chromo->length-i-NOTE_BYTES);
-						chromo->length -= NOTE_BYTES;
+				if(chromo->length != NOTE_BYTES){
+					if(randv() < mutation_rate){//randomly mutate based on mutation rate
+						if(chromo->length >= NOTE_BYTES + i ){//only insert if room left in memory
+							memmove(chromo->genes + i,chromo->genes + i + NOTE_BYTES,chromo->length-i-NOTE_BYTES);
+							chromo->length -= NOTE_BYTES;
+						}
 					}
 				}
 				break;
