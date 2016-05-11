@@ -90,7 +90,7 @@ void* evaluate(void* input) {
 		if (audio_duration(&audio) > 0) {
 			chromo.fitness = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length, &fftw_in, &fftw_out, &plan);
 			if (chromo.fitness > 0) {
-				chromo.fitness = (1000000000.0 / chromo.fitness) + track.count;
+				chromo.fitness = (1000000000.0 / chromo.fitness);
 			} else {
 				chromo.fitness = DBL_MAX;
 			}
