@@ -126,7 +126,10 @@ void* breed(void* input){
 		if(randv() < crossover_rate){
 			one_point_crossover(ch1, ch2, ret);
 		}
-
+		else{
+			ret[0] = ch1;
+			ret[1] = ch2;
+		}
 		//do mutations
 		mutate(&ret[0]);
 		mutate(&ret[1]);
