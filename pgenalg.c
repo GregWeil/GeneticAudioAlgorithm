@@ -46,6 +46,7 @@ int file_dft_length;
 
 typedef struct {
 	int threadid;
+	Audio audio;
 	double*	fftw_in;
 	fftw_complex* fftw_out;
 	fftw_plan plan;
@@ -84,11 +85,11 @@ void* evaluate(void* input) {
 		/* DO ACTUAL EVALUATION HERE */
 		Track track = track_initialize_from_binary(chromo.genes, chromo.length,
 			song_max_duration, note_max_duration, frequency_max);
-		Audio audio = track_audio_fixed_samples(&track, song_max_samples);
+		track_audio_preallocated(&track, &t_input.audio);
 
 		chromo.fitness = 0;
-		if (audio_duration(&audio) > 0) {
-			chromo.fitness = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length, &fftw_in, &fftw_out, &plan);
+		if (audio_duration(&t_input.audio) > 0) {
+			chromo.fitness = AudioComparison(t_input.audio.samples, t_input.audio.count, file_dft_data, file_dft_length, &fftw_in, &fftw_out, &plan);
 			if (chromo.fitness > 0) {
 				chromo.fitness = (1000000000.0 / chromo.fitness);
 			} else {
@@ -96,7 +97,6 @@ void* evaluate(void* input) {
 			}
 		}
 		
-		audio_free(&audio);
 		track_free(&track);
 		
 		population[i] = chromo;
@@ -299,11 +299,14 @@ int main(int argc, char *argv[]){
 	//create a plan for each thread
 	for(i = 0; i<threads_per_rank; i++){
 		threadData[i].threadid = i;
+		
+		threadData[i].audio = audio_initialize(song_max_samples);
 
 		threadData[i].fftw_in = fftw_malloc( sizeof(double) * blockSize2);
 	    if ( !threadData[i].fftw_in ) {
 			printf("error: fftw_malloc 1 failed\n");
 			for( j=0; j < i; j++ ){
+				audio_free( &threadData[i].audio );
 				fftw_free( threadData[j].fftw_in );
 				fftw_destroy_plan( threadData[j].plan );
 				fftw_free( threadData[j].fftw_out );
@@ -402,16 +405,17 @@ int main(int argc, char *argv[]){
 					chromo = &population[i];
 				}
 			}
-			printf("Generation %d:\n\tMax fitness: %.3f\n",generation,max_fitness);
+			printf("Generation %d:\n\tMax fitness: %.5f\n",generation,max_fitness);
 			if (chromo != NULL && (generation%generations_between_wav_output==0 || generation == max_generations)) {
 				Track track = track_initialize_from_binary(chromo->genes, chromo->length,
 					song_max_duration, note_max_duration, frequency_max);
-				Audio audio = track_audio_fixed_samples(&track, song_max_samples);
+				Audio* audio = &(threadData[0].audio);
+				track_audio_preallocated(&track, audio);
 				char fname[256];
 				sprintf(fname, "%s/audio_result_%d.wav", output_directory, generation);
-				double similarity = AudioComparison(audio.samples, audio.count, file_dft_data, file_dft_length, &(threadData[0].fftw_in), &(threadData[0].fftw_out), &(threadData[0].plan) );
+				double similarity = AudioComparison(audio->samples, audio->count, file_dft_data, file_dft_length, &(threadData[0].fftw_in), &(threadData[0].fftw_out), &(threadData[0].plan) );
 				printf("\tDifference Score: %.0f\n", similarity);
-				audio_save(&audio, fname);
+				audio_save(audio, fname);
 				printf("\tNotes: %d (%d bytes)\n", track.count, chromo->length);
 				double freqMax = DBL_MIN; double freqMin = DBL_MAX;
 				double volMax = DBL_MIN; double volMin = DBL_MAX;
@@ -428,7 +432,6 @@ int main(int argc, char *argv[]){
 				printf("\tFrequency: %.0f - %.0f\n", freqMin, freqMax);
 				printf("\tVolume: %.3f - %.3f\n", volMin, volMax);
 				printf("\tDuration: %.3f - %.3f\n", durMin, durMax);
-				audio_free(&audio);
 				track_free(&track);
 			}
 		}
@@ -489,6 +492,7 @@ int main(int argc, char *argv[]){
 	MPI_Finalize();
 
 	for( i=0; i < threads_per_rank; i++ ){
+		audio_free( &threadData[i].audio );
 		fftw_free( threadData[i].fftw_in );
 		fftw_free( threadData[i].fftw_out );
 		fftw_destroy_plan( threadData[i].plan );

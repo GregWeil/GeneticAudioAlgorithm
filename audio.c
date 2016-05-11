@@ -173,35 +173,39 @@ unsigned int track_samples(const Track* track) {
 	return (track_duration(track) * SAMPLE_RATE);
 }
 
-//Generate the audio stream for a track with a fixed length
-Audio track_audio_fixed_samples(const Track* track, const unsigned int count) {
-	Audio audio = audio_initialize(count);
+//Generate the audio stream for a track into an existing audio stream
+void track_audio_preallocated(const Track* track, Audio* audio) {
 	double loudestsample = 1;
 	unsigned int i;
+	
+	//Zero out the audio
+	for (i = 0; i < audio->count; ++i) {
+		audio->samples[i] = 0;
+	}
 	
 	//Add together all of the notes
 	for (i = 0; i < track->count; ++i) {
 		Note* note = &track->notes[i];
 		unsigned int notetime = (note->time * SAMPLE_RATE);
-		note_audio_preallocated(note, &audio, notetime);
+		note_audio_preallocated(note, audio, notetime);
 	}
 	
 	//Find the maximum loudness in the track
-	for (i = 0; i < audio.count; ++i) {
-		loudestsample = fmax(loudestsample, fabs(audio.samples[i]));
+	for (i = 0; i < audio->count; ++i) {
+		loudestsample = fmax(loudestsample, fabs(audio->samples[i]));
 	}
 	
 	//Compress the high range samples
-	for (i = 0; i < audio.count; ++i) {
-		audio.samples[i] = (audio.samples[i] * VOLUME_MAX / loudestsample);
+	for (i = 0; i < audio->count; ++i) {
+		audio->samples[i] = (audio->samples[i] * VOLUME_MAX / loudestsample);
 	}
-	
-	return audio;
 }
 
 //Generate the audio stream for a track of notes
 Audio track_audio(const Track* track) {
-	return track_audio_fixed_samples(track, track_samples(track));
+	Audio audio = audio_initialize(track_samples(track));
+	track_audio_preallocated(track, &audio);
+	return audio;
 }
 
 
