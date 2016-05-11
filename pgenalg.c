@@ -240,6 +240,7 @@ int main(int argc, char *argv[]){
 	}
 	population_size = atoi(argv[1]);
 	max_generations = atoi(argv[2]); 
+	if (max_generations <= 0) max_generations = INT_MAX;
 	threads_per_rank = atoi(argv[3]);
 	char* input_file = argv[4];
 	char* output_directory = argv[5];
