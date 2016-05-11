@@ -244,6 +244,19 @@ int main(int argc, char *argv[]){
 	threads_per_rank = atoi(argv[3]);
 	char* input_file = argv[4];
 	char* output_directory = argv[5];
+	//create output filename
+	char out_filename[100];
+    sprintf(out_filename,"%s/output_%d_%d_%d_%d.txt", output_directory, mpi_commsize, threads_per_rank, population_size, max_generations);
+    //test if valid output directory
+    FILE* fout = fopen(out_filename, "w");	
+    if(!fout){
+    	if(mpi_myrank == 0){ 
+    		printf("error: Invalid output directory %s\n", output_directory);
+    	}
+    	MPI_Finalize();
+		return 0;
+    }
+    fclose(fout);
 	
 	//read input file
 	unsigned int sample_rate = 0;
@@ -463,8 +476,10 @@ int main(int argc, char *argv[]){
 	MPI_Barrier(MPI_COMM_WORLD);	
 
 	if(mpi_myrank == 0){ 
-        endtime = MPI_Wtime();
-        printf("That took %f seconds\n", endtime - starttime);
+		endtime = MPI_Wtime();
+		FILE* fout = fopen(out_filename, "w");	
+		fprintf(fout, "input file:\t%s\n\nranks:\t\t%d\nthreads/rank\t%d\npopulation:\t%d\ngenerations\t%d\n\nTotal Time:\t%f\n", input_file, mpi_commsize, threads_per_rank, population_size, max_generations, endtime - starttime);
+		fclose(fout);
     }
 
 	MPI_Finalize();
