@@ -234,9 +234,9 @@ int main(int argc, char *argv[]){
 
 	starttime = MPI_Wtime();
 
-	if(argc != 6){
+	if(argc != 7){
 		if(mpi_myrank == 0){
-			printf("Incorrect number of args\n\t[1] population_size\n\t[2] max_generations\n\t[3]threads_per_rank\n\t[4]input_file\n\t[5]output_directory\n");
+			printf("Incorrect number of args\n\t[1] population_size\n\t[2] max_generations\n\t[3]threads_per_rank\n\t[4]generations_between_wav_output\n\t[5]input_file\n\t[6]output_directory\n");
 		}
 		MPI_Finalize();
 		return 0;
@@ -245,8 +245,9 @@ int main(int argc, char *argv[]){
 	max_generations = atoi(argv[2]); 
 	if (max_generations <= 0) max_generations = INT_MAX;
 	threads_per_rank = atoi(argv[3]);
-	char* input_file = argv[4];
-	char* output_directory = argv[5];
+	int generations_between_wav_output = atoi(argv[4]);
+	char* input_file = argv[5];
+	char* output_directory = argv[6];
 	//create output filename
 	char out_filename[100];
     sprintf(out_filename,"%s/output_%d_%d_%d_%d.txt", output_directory, mpi_commsize, threads_per_rank, population_size, max_generations);
@@ -402,7 +403,7 @@ int main(int argc, char *argv[]){
 				}
 			}
 			printf("Generation %d:\n\tMax fitness: %.3f\n",generation,max_fitness);
-			if (chromo != NULL && (generation%10==0 || generation == max_generations)) {
+			if (chromo != NULL && (generation%generations_between_wav_output==0 || generation == max_generations)) {
 				Track track = track_initialize_from_binary(chromo->genes, chromo->length,
 					song_max_duration, note_max_duration, frequency_max);
 				Audio audio = track_audio_fixed_samples(&track, song_max_samples);
