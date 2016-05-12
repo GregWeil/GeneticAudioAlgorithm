@@ -35,7 +35,7 @@ double song_max_duration = 60;
 double note_max_duration = 0.1;
 double frequency_max = 25000;
 
-int blockSize2 = 256;
+int blockSize2 = 512;
 
 //thread-safe rng stuff
 struct drand48_data drand_buf;

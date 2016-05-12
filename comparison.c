@@ -6,7 +6,7 @@
 #include "fftw3.h"
 #include "comparison.h"
 
-sf_count_t blockSize = 256; //some code suggests its the size of each sample. Other code suggests its the number of samples. 256 is default.
+sf_count_t blockSize = 512; //some code suggests its the size of each sample. Other code suggests its the number of samples. 256 is default.
 
 void PrintAudioMetadata(SF_INFO * file)
 {
