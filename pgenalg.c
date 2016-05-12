@@ -245,7 +245,9 @@ int main(int argc, char *argv[]){
 	max_generations = atoi(argv[2]); 
 	if (max_generations <= 0) max_generations = INT_MAX;
 	threads_per_rank = atoi(argv[3]);
+	if (threads_per_rank <= 0) threads_per_rank = 1;
 	int generations_between_wav_output = atoi(argv[4]);
+	if (generations_between_wav_output <= 0) generations_between_wav_output = INT_MAX;
 	char* input_file = argv[5];
 	char* output_directory = argv[6];
 	//create output filename
