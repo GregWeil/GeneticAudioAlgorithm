@@ -4,6 +4,7 @@
 #include <math.h>
 #include <limits.h>
 #include <stdio.h>
+#include <endian.h>
 
 //The value of PI, since I need it sometimes
 const double PI = 3.14159265358979323846;
@@ -260,35 +261,35 @@ void audio_save(const Audio* audio, const char* path) {
 	EncodedSample* samples = (EncodedSample*)malloc(audio->count * sizeof(EncodedSample));
 	unsigned int i;
 	for (i = 0; i < audio->count; ++i) {
-		samples[i] = (fmin(fmax(audio->samples[i], -1), 1) * SHRT_MAX);
+		samples[i] = htole16(fmin(fmax(audio->samples[i], -1), 1) * SHRT_MAX);
 	}
 	
 	//Heaader chunk
 	fprintf(file, "RIFF");
-	unsigned int chunksize = ((audio->count * sizeof(EncodedSample)) + 36);
+	unsigned int chunksize = htole32((audio->count * sizeof(EncodedSample)) + 36);
 	fwrite(&chunksize, sizeof(chunksize), 1, file);
 	fprintf(file, "WAVE");
 	
 	//Format chunk
 	fprintf(file, "fmt ");
-	unsigned int fmtchunksize = 16;
+	unsigned int fmtchunksize = htole32(16);
 	fwrite(&fmtchunksize, sizeof(fmtchunksize), 1, file);
-	unsigned short audioformat = 1;
+	unsigned short audioformat = htole16(1);
 	fwrite(&audioformat, sizeof(audioformat), 1, file);
-	unsigned short numchannels = 1;
+	unsigned short numchannels = htole16(1);
 	fwrite(&numchannels, sizeof(numchannels), 1, file);
-	unsigned int samplerate = SAMPLE_RATE;
+	unsigned int samplerate = htole32(SAMPLE_RATE);
 	fwrite(&samplerate, sizeof(samplerate), 1, file);
-	unsigned int byterate = (samplerate * numchannels * sizeof(EncodedSample));
+	unsigned int byterate = htole32(samplerate * numchannels * sizeof(EncodedSample));
 	fwrite(&byterate, sizeof(byterate), 1, file);
-	unsigned short blockalign = (numchannels * sizeof(EncodedSample));
+	unsigned short blockalign = htole16(numchannels * sizeof(EncodedSample));
 	fwrite(&blockalign, sizeof(blockalign), 1, file);
-	unsigned short bitspersample = (sizeof(EncodedSample) * CHAR_BIT);
+	unsigned short bitspersample = htole16(sizeof(EncodedSample) * CHAR_BIT);
 	fwrite(&bitspersample, sizeof(bitspersample), 1, file);
 	
 	//Data chunk
 	fprintf(file, "data");
-	unsigned int datachunksize = (audio->count * sizeof(EncodedSample));
+	unsigned int datachunksize = htole32(audio->count * sizeof(EncodedSample));
 	fwrite(&datachunksize, sizeof(datachunksize), 1, file);
 	fwrite(samples, sizeof(EncodedSample), audio->count, file);
 	
