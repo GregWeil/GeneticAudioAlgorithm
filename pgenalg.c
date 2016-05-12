@@ -25,6 +25,7 @@ int mpi_myrank;
 int mpi_commsize;
 int population_size;//population size
 int max_generations;//max generations to run for
+double max_fitness; //best fitness of current generation
 int threads_per_rank;//number of threads per rank
 double mutation_rate = 0.05;//mutation rate
 double crossover_rate = 0.97;//crossover rate
@@ -398,7 +399,7 @@ int main(int argc, char *argv[]){
 		
 		//print some metrics every 10 generations
 		if(mpi_myrank == 0){
-			double max_fitness = 0;
+			max_fitness = 0;
 			chromosome* chromo = NULL;
 			for(i=0; i<population_size; i++){
 				chromosome tmp = population[i];
@@ -485,13 +486,6 @@ int main(int argc, char *argv[]){
 	MPI_Barrier(MPI_COMM_WORLD);	
 
 	if(mpi_myrank == 0){ 
-		double max_fitness = 0;
-		for(i=0; i<population_size; i++){
-			chromosome tmp = population[i];
-			if(tmp.fitness > max_fitness){
-				max_fitness = tmp.fitness;
-			}
-		}
 		endtime = MPI_Wtime();
 		FILE* fout = fopen(out_filename, "w");	
 		fprintf(fout, "%s \tfilename\n%d \t\tranks\n%d \t\tthreads/rank\n%d \t\tpopulation\n%d \t\tgenerations\n%f \tTotalTime\n%.3f \tMax Fitness\n", input_file, mpi_commsize, threads_per_rank, population_size, max_generations, endtime - starttime, max_fitness);
