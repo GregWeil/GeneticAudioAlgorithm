@@ -176,7 +176,6 @@ unsigned int track_samples(const Track* track) {
 
 //Generate the audio stream for a track into an existing audio stream
 void track_audio_preallocated(const Track* track, Audio* audio) {
-	double loudestsample = 1;
 	unsigned int i;
 	
 	//Zero out the audio
@@ -191,14 +190,9 @@ void track_audio_preallocated(const Track* track, Audio* audio) {
 		note_audio_preallocated(note, audio, notetime);
 	}
 	
-	//Find the maximum loudness in the track
+	//Clip the out of range samples
 	for (i = 0; i < audio->count; ++i) {
-		loudestsample = fmax(loudestsample, fabs(audio->samples[i]));
-	}
-	
-	//Compress the high range samples
-	for (i = 0; i < audio->count; ++i) {
-		audio->samples[i] = (audio->samples[i] * VOLUME_MAX / loudestsample);
+		audio->samples[i] = fmin(fmax(audio->samples[i], -VOLUME_MAX), VOLUME_MAX);
 	}
 }
 
