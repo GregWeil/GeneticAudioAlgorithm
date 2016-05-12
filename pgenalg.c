@@ -32,7 +32,7 @@ double crossover_rate = 0.97;//crossover rate
 
 unsigned int song_max_samples = 48000;
 double song_max_duration = 60;
-double note_max_duration = 3;
+double note_max_duration = 0.1;
 double frequency_max = 25000;
 
 int blockSize2 = 256;
@@ -237,6 +237,20 @@ chromosome* tournament_selection(int tournament_size){
         return best;
 }
 
+chromosome get_best_chromosome(){
+	int i;
+	max_fitness = -1;
+	chromosome* chromo = NULL;
+	for(i=0; i<population_size; i++){
+		chromosome tmp = population[i];
+		if(tmp.fitness > max_fitness){
+			max_fitness = tmp.fitness;
+			chromo = &population[i];
+		}
+	}
+	return *chromo;
+}
+
 int main(int argc, char *argv[]){
 	double starttime, endtime;
 
@@ -375,7 +389,7 @@ int main(int argc, char *argv[]){
 	for(i=0; i<population_size;i++){
 		chromosome tmp;
 		tmp.fitness = 0;
-		int length = randr(1,10)*NOTE_BYTES;//start chromosomes between with random size
+		int length = randr(10,100)*NOTE_BYTES;//start chromosomes between with random size
 		tmp.length = length;
 		for(j=0;j<length;j++){//assign random char values (0-255)
 			tmp.genes[j] = (char)randr(0,255);//RAND_CHAR;
@@ -400,8 +414,6 @@ int main(int argc, char *argv[]){
 		
 		*/
 		
-		//printf("begin evaluation\n");
-		
 		for (i = 0; i < threads_per_rank; i++) {
 			pthread_create(&threads[i], NULL, evaluate, &(threadData[i]));
 		}
@@ -409,21 +421,25 @@ int main(int argc, char *argv[]){
 			pthread_join(threads[i], NULL);
 		}
 		
-		//print some metrics every 10 generations
-		if(mpi_myrank == 0){
-			max_fitness = 0;
-			chromosome* chromo = NULL;
-			for(i=0; i<population_size; i++){
-				chromosome tmp = population[i];
-				if(tmp.fitness > max_fitness){
-					max_fitness = tmp.fitness;
-					chromo = &population[i];
-				}
-			}
-			printf("Generation %d:\n\tMax fitness: %.5f\n",generation,max_fitness);
-			if (chromo != NULL && (generation%generations_between_wav_output==0 || generation == max_generations)) {
-				Track track = track_initialize_from_binary(chromo->genes, chromo->length,
-					song_max_duration, note_max_duration, frequency_max);
+		chromosome best_chromo = get_best_chromosome();
+		
+		//do global exchange
+		if(generation%generations_between_wav_output==0 || generation == max_generations){
+			if(mpi_myrank == 0){//recv best from everything
+				chromosome recv;
+				int best_rank = 0;
+				for(i=1;i<mpi_commsize;i++){
+					MPI_Recv(&recv, 1, MPI_CHROMO, i, 1234, MPI_COMM_WORLD, &status);
+					if(recv.fitness > best_chromo.fitness){
+						best_chromo = recv;
+						best_rank = i;
+					}
+				}	
+				
+				printf("Best among all populations:\nRank: %d\nGeneration %d:\n\tMax fitness: %.5f\n",best_rank,generation,max_fitness);
+				
+				//do detailed output
+				Track track = track_initialize_from_binary(best_chromo.genes, best_chromo.length, song_max_duration, note_max_duration, frequency_max);
 				Audio* audio = &(threadData[0].audio);
 				track_audio_preallocated(&track, audio);
 				char fname[256];
@@ -431,7 +447,7 @@ int main(int argc, char *argv[]){
 				double similarity = AudioComparison(audio->samples, audio->count, file_dft_data, file_dft_length, &(threadData[0].fftw_in), &(threadData[0].fftw_out), &(threadData[0].plan) );
 				printf("\tDifference Score: %.0f\n", similarity);
 				audio_save(audio, fname);
-				printf("\tNotes: %d (%d bytes)\n", track.count, chromo->length);
+				printf("\tNotes: %d (%d bytes)\n", track.count, best_chromo.length);
 				double freqMax = DBL_MIN; double freqMin = DBL_MAX;
 				double volMax = DBL_MIN; double volMin = DBL_MAX;
 				double durMax = DBL_MIN; double durMin = DBL_MAX;
@@ -449,6 +465,15 @@ int main(int argc, char *argv[]){
 				printf("\tDuration: %.3f - %.3f\n", durMin, durMax);
 				track_free(&track);
 			}
+			else{//else send best to rank 0
+				MPI_Send(&best_chromo, 1, MPI_CHROMO, 0, 1234, MPI_COMM_WORLD);
+			}
+		}else{
+			if(mpi_myrank == 0){//recv best from everything
+				//else just print for rank 0
+				printf("Rank 0 Best\nGeneration %d:\n\tMax fitness: %.5f\n",generation,max_fitness);
+			}
+			
 		}
 		
 		/*
