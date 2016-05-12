@@ -482,9 +482,16 @@ int main(int argc, char *argv[]){
 	MPI_Barrier(MPI_COMM_WORLD);	
 
 	if(mpi_myrank == 0){ 
+		double max_fitness = 0;
+		for(i=0; i<population_size; i++){
+			chromosome tmp = population[i];
+			if(tmp.fitness > max_fitness){
+				max_fitness = tmp.fitness;
+			}
+		}
 		endtime = MPI_Wtime();
 		FILE* fout = fopen(out_filename, "w");	
-		fprintf(fout, "input file:\t%s\n\nranks:\t\t%d\nthreads/rank\t%d\npopulation:\t%d\ngenerations\t%d\n\nTotal Time:\t%f\n", input_file, mpi_commsize, threads_per_rank, population_size, max_generations, endtime - starttime);
+		fprintf(fout, "%s \tfilename\n%d \t\tranks\n%d \t\tthreads/rank\n%d \t\tpopulation\n%d \t\tgenerations\n%f \tTotalTime\n%.3f \tMax Fitness\n", input_file, mpi_commsize, threads_per_rank, population_size, max_generations, endtime - starttime, max_fitness);
 		fclose(fout);
     }
 
