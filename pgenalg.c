@@ -74,7 +74,13 @@ void* evaluate(void* input) {
 	fftw_plan plan = t_input.plan;
 
 	int chunk_size = population_size / threads_per_rank;
-	int remainder = population_size % chunk_size;
+	int remainder;
+	if(chunk_size == 0){
+		remainder = population_size;
+	}
+	else{
+		remainder = population_size % chunk_size;
+	}
 	int start = threadID * chunk_size;
 	start += (threadID < remainder) ? threadID : remainder;
 	if (threadID < remainder) chunk_size += 1;
@@ -112,7 +118,13 @@ void* breed(void* input){
 	t_data t_input = *((t_data *)input);
 	int threadID = t_input.threadid;
 	int chunk_size = population_size / threads_per_rank;
-	int remainder = population_size % chunk_size;
+	int remainder;
+	if(chunk_size == 0){
+		remainder = population_size;
+	}
+	else{
+		remainder = population_size % chunk_size;
+	}
 	int start = threadID * chunk_size;
 	start += (threadID < remainder) ? threadID : remainder;
 	if (threadID < remainder) chunk_size += 1;
