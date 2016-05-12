@@ -389,7 +389,7 @@ int main(int argc, char *argv[]){
 	for(i=0; i<population_size;i++){
 		chromosome tmp;
 		tmp.fitness = 0;
-		int length = randr(10,100)*NOTE_BYTES;//start chromosomes between with random size
+		int length = randr(150,250)*NOTE_BYTES;//start chromosomes between with random size
 		tmp.length = length;
 		for(j=0;j<length;j++){//assign random char values (0-255)
 			tmp.genes[j] = (char)randr(0,255);//RAND_CHAR;
