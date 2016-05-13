@@ -3,7 +3,7 @@ extract libraries.zip, then from inside both library folders run the commands:
 ./configure
 make
 
-On a linux system you can run build_libraries.sh
+On a linux system you can run build_libraries.sh if unzip is installed
 
 if you want to recompile the libraries, you must first remove the current configuration files with
 
