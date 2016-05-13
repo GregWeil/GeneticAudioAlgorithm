@@ -289,6 +289,7 @@ int main(int argc, char *argv[]){
     	MPI_Finalize();
 		return 0;
     }
+	fprintf(fout, "%s \tfilename\n%d \t\tranks\n%d \t\tthreads/rank\n%d \t\tpopulation\n%d \t\tgenerations\n", input_file, mpi_commsize, threads_per_rank, population_size, max_generations);
     fclose(fout);
 	
 	//read input file
@@ -524,8 +525,8 @@ int main(int argc, char *argv[]){
 
 	if(mpi_myrank == 0){ 
 		endtime = MPI_Wtime();
-		FILE* fout = fopen(out_filename, "w");	
-		fprintf(fout, "%s \tfilename\n%d \t\tranks\n%d \t\tthreads/rank\n%d \t\tpopulation\n%d \t\tgenerations\n%f \tTotalTime\n%.3f \tMax Fitness\n", input_file, mpi_commsize, threads_per_rank, population_size, max_generations, endtime - starttime, max_fitness);
+		FILE* fout = fopen(out_filename, "a");	
+		fprintf(fout, "%f \tTotalTime\n%.3f \tMax Fitness\n", endtime - starttime, max_fitness);
 		fclose(fout);
     }
 
