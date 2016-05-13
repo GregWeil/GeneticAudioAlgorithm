@@ -37,7 +37,7 @@ for filename in glob.glob('*.txt'):
 	p.pop_total = p.ranks*p.pop_per_rank
 	added = False
 	for dataset in datasets:
-		if dataset[0].pop_total == p.pop_total:
+		if dataset[0].threads_per_rank == p.threads_per_rank:
 			added = True;
 			dataset.append(p)
 	if not added:
@@ -49,7 +49,7 @@ for dataset in datasets :
 	print("pop " + str(dataset[0].pop_total) + ". size " + str(len(dataset)))
 
 
-colors = ['ro','yo','bo','go','ko','mo','co','wo']
+colors = ['r','y','b','g','k','m','c','w']
 for i, dataset in enumerate(datasets) :
 	#different colors for different pop_total
 	ranks = []
@@ -62,6 +62,8 @@ for i, dataset in enumerate(datasets) :
 	ranks = np.asarray(ranks)
 	time = np.asarray(time)
 	fitness = np.asarray(fitness)
+
+	print(p.threads_per_rank)
 
 	#sort arrays by number of ranks(so lines draw correctly)
 	ranks, time, fitness = (list(t) for t in zip(*sorted(zip(ranks, time, fitness))))
